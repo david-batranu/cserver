@@ -13,26 +13,9 @@
 #define BUFFER_SIZE 1024
 
 
-void write_favicon(int sockfd) {
+void send_file(FILE* fp, int sockfd) {
     char buffer[BUFFER_SIZE] = {0};
-    char resp[] =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-type: image/x-icon\r\n"
-    "Connection: close\r\n"
-    "\r\n";
 
-    FILE *fp;
-    // fp = fopen("favicon.ico", "r");
-    fp = fopen("favicon.ico", "r");
-    if (fp == NULL) {
-        perror("opening favicon.ico");
-    }
-
-    // send ok
-    // write(sockfd, resp, sizeof(resp) - 1);
-    write(sockfd, resp, strlen(resp));
-
-    // send rest of file
     for (;;) {
         int nread = fread(buffer, 1, BUFFER_SIZE, fp);
         printf("Bytes read %d \n", nread);
@@ -53,8 +36,29 @@ void write_favicon(int sockfd) {
             break;
         }
 
-        // bzero(buffer, BUFFER_SIZE);
+        bzero(buffer, BUFFER_SIZE);
     }
+}
+
+
+void write_favicon(int sockfd) {
+    char resp[] =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-type: image/x-icon\r\n"
+    "Connection: close\r\n"
+    "\r\n";
+
+    FILE *fp;
+    fp = fopen("favicon.ico", "r");
+    if (fp == NULL) {
+        perror("opening favicon.ico");
+    }
+
+    // send ok
+    write(sockfd, resp, strlen(resp));
+
+    // send rest of file
+    send_file(fp, sockfd);
 
     printf("write: favicon.ico\n");
 }
