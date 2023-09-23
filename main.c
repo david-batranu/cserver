@@ -11,6 +11,26 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define HEADER_SIZE 64
+
+
+void resp_ok(char* resp, char* content_type, char* extra_headers) {
+    char basic[] = 
+    "HTTP/1.1 200 OK\r\n"
+    "Connection: close\r\n"
+    "Content-type: %s\r\n"
+    "%s"
+    "\r\n";
+    sprintf(resp, basic, content_type, extra_headers);
+}
+
+
+long get_file_size(FILE *fp) {
+    fseek(fp, 0L, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    return size;
+}
 
 
 void send_file(FILE* fp, int sockfd) {
@@ -42,17 +62,22 @@ void send_file(FILE* fp, int sockfd) {
 
 
 void write_favicon(int sockfd) {
-    char resp[] =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-type: image/x-icon\r\n"
-    "Connection: close\r\n"
-    "\r\n";
+    char resp[BUFFER_SIZE];
+    char extra_headers[HEADER_SIZE];
 
     FILE *fp;
     fp = fopen("favicon.ico", "r");
     if (fp == NULL) {
         perror("opening favicon.ico");
     }
+
+    sprintf(
+        extra_headers, 
+        "Content-length: %ld\r\n",
+        get_file_size(fp)
+    );
+
+    resp_ok(resp, "image/x-icon", extra_headers);
 
     // send ok
     write(sockfd, resp, strlen(resp));
