@@ -10,7 +10,8 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <sqlite3.h>
+// #include <sqlite3.h>
+#include "dbutil.c"
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -21,13 +22,13 @@ static volatile sig_atomic_t keepRunning = 1;
 
 
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
-    char basic[] = 
-    "HTTP/1.1 200 OK\r\n"
-    "Connection: close\r\n"
-    "Content-type: %s\r\n"
-    "%s"
-    "\r\n"
-    "%s";
+    char basic[] =
+        "HTTP/1.1 200 OK\r\n"
+        "Connection: close\r\n"
+        "Content-type: %s\r\n"
+        "%s"
+        "\r\n"
+        "%s";
     sprintf(resp, basic, content_type, extra_headers, body);
 }
 
@@ -52,7 +53,7 @@ void send_file(FILE* fp, int sockfd) {
                 perror("sending file...");
             }
         }
-        
+
         else if (nread < BUFFER_SIZE) {
             if (feof(fp)) {
                 // printf("End of file.\n");
@@ -76,7 +77,7 @@ void write_default(int sockfd, char* resp) {
 
 
 void write_favicon(int sockfd, char* resp) {
-    char extra_headers[HEADER_SIZE];
+    char extra_headers[HEADER_SIZE] = {0};
 
     FILE *fp;
     fp = fopen("favicon.ico", "r");
@@ -85,10 +86,10 @@ void write_favicon(int sockfd, char* resp) {
     }
 
     sprintf(
-        extra_headers, 
-        "Content-length: %ld\r\n",
-        get_file_size(fp)
-    );
+            extra_headers,
+            "Content-length: %ld\r\n",
+            get_file_size(fp)
+           );
 
     resp_ok(resp, "image/x-icon", extra_headers, "");
 
@@ -113,28 +114,20 @@ static int db_callback_greeting(void *buffer, int num_columns, char **columns, c
 
 
 void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
-    int rc;
-    char *zErrMsg = 0;
 
-    char query[BUFFER_SIZE];
-    char greeting[BUFFER_SIZE];
-    char body[RESPONSE_SIZE];
+    char query[BUFFER_SIZE] = {0};
+    char greeting[BUFFER_SIZE] = {0};
+    char body[RESPONSE_SIZE] = {0};
 
     sprintf(query, "select greeting from user_greeting where name == '%s';", name);
 
     // printf("query: %s\n", query);
 
-    rc = sqlite3_exec(db, query, &db_callback_greeting, greeting, &zErrMsg);
-    if(rc != SQLITE_OK){
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-        sqlite3_free(zErrMsg);
-    } 
-
-    if (rc != SQLITE_OK || strlen(greeting) == 0) {
+    if (query_db(db, query, db_callback_greeting, greeting) != 0 || strlen(greeting) == 0) {
         sprintf(greeting, "Who?");
     }
 
-    sprintf(body, "<html><head><title>%s</title></head><body><h1>%s</h1></body></html>", greeting, greeting);
+    sprintf(body, "<html><head><title>%s</title></head><body><h1>%s</h1></body></html>\n", greeting, greeting);
     resp_ok(resp, "text/html", "", body);
     write(sockfd, resp, strlen(resp));
 
@@ -161,12 +154,12 @@ int create_socket() {
         perror("webserver (setsockopt: SO_REUSEADDR)");
     }
 
-    #ifdef SO_REUSEPORT
+#ifdef SO_REUSEPORT
     int set_socket_reuse_port = setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&socket_reuse, sizeof(socket_reuse));
     if (set_socket_reuse_port < 0) {
         perror("webserver (setsockopt: SO_REUSEPORT)");
     }
-    #endif
+#endif
 
     return sockfd;
 }
@@ -180,29 +173,30 @@ void signalHandler(int dummy) {
 }
 
 
-int connect_db(char *filename, sqlite3 **db) {
-    int rc;
-
-    rc = sqlite3_open(filename, db);
-    if (rc) {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(*db));
-        sqlite3_close(*db);
-        return 0;
+void clean_user_string(char *in, char *out) {
+    int i = 0;
+    int j = 0;
+    int ch;
+    for (;i < strlen(in); i++) {
+        ch = in[i];
+        if ((ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122)) {
+            out[j] = ch;
+            j++;
+        }
     }
-
-    return 1;
 }
+
 
 int main() {
 
     // Handle Ctrl+C
     signal(SIGINT, signalHandler);
-    
+
     sqlite3 *db;
     int db_connected = 0;
 
     db_connected = connect_db("main.db", &db);
-    
+
     // int n_requests = 0;
     char request_buffer[BUFFER_SIZE];
     char response_buffer[RESPONSE_SIZE];
@@ -270,29 +264,31 @@ int main() {
         }
 
         // Read the request
-        char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE];
+        char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE] = {0};
         sscanf(request_buffer, "%s %s %s", method, uri, version);
 
 
         // printf(
-        //     "[%s:%u] %s %s %s\n", 
-        //     inet_ntoa(client_addr.sin_addr), 
-        //     ntohs(client_addr.sin_port),
-        //     method,
-        //     version,
-        //     uri
-        // );
+        //         "[%s:%u] %s %s %s\n",
+        //         inet_ntoa(client_addr.sin_addr),
+        //         ntohs(client_addr.sin_port),
+        //         method,
+        //         version,
+        //         uri
+        //       );
 
 
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
         }
         else if (strncmp(uri, "/greet/", 6) == 0) {
-            char greet_name[BUFFER_SIZE];
+            char greet_name[BUFFER_SIZE] = {0};
+            char clean_greet_name[BUFFER_SIZE] = {0};
             sscanf(uri, "/greet/%s", greet_name);
-            // printf("greet: %s\n", greet_name);
+            clean_user_string(greet_name, clean_greet_name);
+            // printf("greet: %s (%s)\n", greet_name, clean_greet_name);
             if (db_connected) {
-                write_greeting(newsockfd, response_buffer, greet_name, db);
+                write_greeting(newsockfd, response_buffer, clean_greet_name, db);
             }
         }
         else {
