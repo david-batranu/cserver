@@ -20,6 +20,15 @@
 
 static volatile sig_atomic_t keepRunning = 1;
 
+void escape_quotes(char *in) {
+    int i, ch = 0;
+    for (i = 0; i < strlen(in); i++) {
+        ch = in[i];
+        if (ch == 34) {
+            in[i] = 39;
+        }
+    }
+}
 
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
     char basic[] =
@@ -131,10 +140,50 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
     resp_ok(resp, "text/html", "", body);
     write(sockfd, resp, strlen(resp));
 
-    bzero(query, BUFFER_SIZE);
-    bzero(greeting, BUFFER_SIZE);
-    bzero(body, RESPONSE_SIZE);
+    // bzero(query, BUFFER_SIZE);
+    // bzero(greeting, BUFFER_SIZE);
+    // bzero(body, RESPONSE_SIZE);
 
+}
+
+static int db_callback_articles(void *sockfd, int num_columns, char **columns, char **column_names) {
+    int *fd = (int*) sockfd;
+    // (*ptr)++;
+
+    escape_quotes(columns[1]);
+    char article[BUFFER_SIZE*1024] = {0};
+    sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
+
+    write(*fd, article, strlen(article));
+
+    // printf("count: %i", (int**)buffer);
+    // printf("Got %d columns!\n", num_columns);
+    // if (num_columns == 1) {
+    //     // printf("Columns: %s\n", columns[0]);
+    //     sprintf((char *)buffer, "%s", columns[0]);
+    // }
+    return 0;
+};
+
+void write_articles(int sockfd, char* resp, sqlite3 *db) {
+    char query[BUFFER_SIZE] = {0};
+
+    char basic[] =
+        "HTTP/1.1 200 OK\r\n"
+        "Connection: close\r\n"
+        "Content-type: application/json\r\n"
+        "\r\n"
+        "{\"results\":[";
+
+    write(sockfd, basic, strlen(basic));
+
+    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate LIMIT 10;");
+
+    if (query_db(db, query, db_callback_articles, &sockfd) != 0) {
+        printf("Articles query error");
+    }
+
+    write(sockfd, "]}", 2);
 }
 
 
@@ -280,6 +329,9 @@ int main() {
 
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
+        }
+        else if (strcmp(uri, "/articles") == 0) {
+            write_articles(newsockfd, response_buffer, db);
         }
         else if (strncmp(uri, "/greet/", 6) == 0) {
             char greet_name[BUFFER_SIZE] = {0};
