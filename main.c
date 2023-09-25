@@ -21,11 +21,10 @@
 static volatile sig_atomic_t keepRunning = 1;
 
 void escape_quotes(char *in) {
-    int i, ch = 0;
-    for (i = 0; i < strlen(in); i++) {
-        ch = in[i];
-        if (ch == 34) {
-            in[i] = 39;
+    int i = 0;
+    for (; in[i]; i++) {
+        if (in[i] == '"') {
+            in[i] = '\'';
         }
     }
 }
@@ -146,15 +145,16 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
 
 }
 
-static int db_callback_articles(void *sockfd, int num_columns, char **columns, char **column_names) {
-    int *fd = (int*) sockfd;
+static int db_callback_articles(void *buffer, int num_columns, char **columns, char **column_names) {
+    // int *fd = (int*) sockfd;
     // (*ptr)++;
-
     escape_quotes(columns[1]);
-    char article[BUFFER_SIZE*1024] = {0};
+    char article[BUFFER_SIZE*1024];
     sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
 
-    write(*fd, article, strlen(article));
+    strncat(buffer, article, strlen(article));
+
+    // write(*fd, article, strlen(article));
 
     // printf("count: %i", (int**)buffer);
     // printf("Got %d columns!\n", num_columns);
@@ -168,6 +168,9 @@ static int db_callback_articles(void *sockfd, int num_columns, char **columns, c
 void write_articles(int sockfd, char* resp, sqlite3 *db) {
     char query[BUFFER_SIZE] = {0};
 
+    char response[BUFFER_SIZE*1024];
+    response[0] = '\0';
+
     char basic[] =
         "HTTP/1.1 200 OK\r\n"
         "Connection: close\r\n"
@@ -179,9 +182,11 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
 
     sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate LIMIT 10;");
 
-    if (query_db(db, query, db_callback_articles, &sockfd) != 0) {
+    if (query_db(db, query, db_callback_articles, response) != 0) {
         printf("Articles query error");
     }
+
+    write(sockfd, response, strlen(response));
 
     write(sockfd, "]}", 2);
 }

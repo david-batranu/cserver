@@ -41,10 +41,8 @@ for _id, uri, db_title in sources:
         title = item.title
         description = item.description
         published = time.mktime(
-            item.get(
-                "published_parsed",
-                dateparser.parse(item["published"].split(",")[-1]).timetuple(),
-            )
+            item.get("published_parsed")
+            or dateparser.parse(item["published"].split(",")[-1]).timetuple(),
         )
         created = time.mktime(datetime_now().timetuple())
 
