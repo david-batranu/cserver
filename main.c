@@ -20,6 +20,13 @@
 
 static volatile sig_atomic_t keepRunning = 1;
 
+// https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb
+char* mystrcat( char* dest, char* src ) {
+     while (*dest) dest++;
+     while ((*dest++ = *src++));
+     return --dest;
+}
+
 void escape_quotes(char *in) {
     int i = 0;
     for (; in[i]; i++) {
@@ -38,6 +45,15 @@ void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
         "\r\n"
         "%s";
     sprintf(resp, basic, content_type, extra_headers, body);
+}
+
+void resp_404(char* resp) {
+    char basic[] = 
+        "HTTP/1.1 404 Not Found\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    strcat(resp, basic);
+    // sprintf(resp, basic, content_type, extra_headers, body);
 }
 
 
@@ -83,6 +99,11 @@ void write_default(int sockfd, char* resp) {
     write(sockfd, resp, strlen(resp));
 }
 
+
+void write_404(int sockfd, char* resp) {
+    resp_404(resp);
+    write(sockfd, resp, strlen(resp));
+}
 
 void write_favicon(int sockfd, char* resp) {
     char extra_headers[HEADER_SIZE] = {0};
@@ -143,13 +164,6 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
     // bzero(greeting, BUFFER_SIZE);
     // bzero(body, RESPONSE_SIZE);
 
-}
-
-// https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb
-char* mystrcat( char* dest, char* src ) {
-     while (*dest) dest++;
-     while ((*dest++ = *src++));
-     return --dest;
 }
 
 typedef struct {
@@ -361,7 +375,8 @@ int main() {
 
 
         if (strcmp(uri, "/favicon.ico") == 0) {
-            write_favicon(newsockfd, response_buffer);
+            // write_favicon(newsockfd, response_buffer);
+            write_404(newsockfd, response_buffer);
         }
         else if (strcmp(uri, "/articles") == 0) {
             write_articles(newsockfd, response_buffer, db);
@@ -369,7 +384,7 @@ int main() {
         else if (strncmp(uri, "/greet/", 6) == 0) {
             char greet_name[BUFFER_SIZE] = {0};
             char clean_greet_name[BUFFER_SIZE] = {0};
-            sscanf(uri, "/greet/%s", greet_name);
+            sscanf(uri, "/greet/%128s", greet_name);
             clean_user_string(greet_name, clean_greet_name);
             // printf("greet: %s (%s)\n", greet_name, clean_greet_name);
             if (db_connected) {
