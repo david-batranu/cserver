@@ -145,14 +145,37 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
 
 }
 
+// https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb
+char* mystrcat( char* dest, char* src ) {
+     while (*dest) dest++;
+     while ((*dest++ = *src++));
+     return --dest;
+}
+
+typedef struct {
+    char *buffer;
+    char *p;
+} mybuff;
+
 static int db_callback_articles(void *buffer, int num_columns, char **columns, char **column_names) {
     // int *fd = (int*) sockfd;
     // (*ptr)++;
-    escape_quotes(columns[1]);
-    char article[BUFFER_SIZE*1024];
-    sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
 
-    strncat(buffer, article, strlen(article));
+    mybuff *buff = (mybuff*) buffer;
+
+    escape_quotes(columns[1]);
+    // char article[BUFFER_SIZE*1024];
+    // sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
+
+    buff->p = mystrcat(buff->p, "{\"uri\":\"");
+    buff->p = mystrcat(buff->p, columns[0]);
+    buff->p = mystrcat(buff->p, "\",\"title\": \"");
+    buff->p = mystrcat(buff->p, columns[1]);
+    buff->p = mystrcat(buff->p, "\",\"date\":\"");
+    buff->p = mystrcat(buff->p, columns[2]);
+    buff->p = mystrcat(buff->p, "\"},");
+
+    // strncat(buffer, article, strlen(article));
 
     // write(*fd, article, strlen(article));
 
@@ -171,6 +194,10 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
     char response[BUFFER_SIZE*1024];
     response[0] = '\0';
 
+    mybuff buff;
+    buff.buffer = response;
+    buff.p = response;
+
     char basic[] =
         "HTTP/1.1 200 OK\r\n"
         "Connection: close\r\n"
@@ -180,9 +207,9 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
 
     write(sockfd, basic, strlen(basic));
 
-    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate LIMIT 10;");
+    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate limit 80;");
 
-    if (query_db(db, query, db_callback_articles, response) != 0) {
+    if (query_db(db, query, db_callback_articles, &buff) != 0) {
         printf("Articles query error");
     }
 
@@ -318,7 +345,8 @@ int main() {
         }
 
         // Read the request
-        char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE] = {0};
+        char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE];
+        // method[0] = uri[0] = version[0] = '\0';
         sscanf(request_buffer, "%s %s %s", method, uri, version);
 
 
