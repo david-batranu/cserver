@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -ggdb
 CLIBS=-lsqlite3
 OBJECTS=main.o
 

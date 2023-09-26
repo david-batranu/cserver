@@ -17,6 +17,7 @@
 #define BUFFER_SIZE 1024
 #define HEADER_SIZE 64
 #define RESPONSE_SIZE 4096
+#define FILE_BUFFER_SIZE 1024*64
 
 static volatile sig_atomic_t keepRunning = 1;
 
@@ -66,19 +67,18 @@ long get_file_size(FILE *fp) {
 
 
 void send_file(FILE* fp, int sockfd) {
-    char buffer[BUFFER_SIZE] = {0};
+    char buffer[FILE_BUFFER_SIZE];
 
     for (;;) {
-        int nread = fread(buffer, 1, BUFFER_SIZE, fp);
+        int nread = fread(buffer, 1, FILE_BUFFER_SIZE, fp);
         // printf("Bytes read %d \n", nread);
-
         if (nread > 0) {
             if (write(sockfd, buffer, nread) == -1) {
                 perror("sending file...");
             }
         }
 
-        else if (nread < BUFFER_SIZE) {
+        else if (nread < FILE_BUFFER_SIZE) {
             if (feof(fp)) {
                 // printf("End of file.\n");
                 break;
@@ -89,7 +89,7 @@ void send_file(FILE* fp, int sockfd) {
             break;
         }
 
-        bzero(buffer, BUFFER_SIZE);
+        // bzero(buffer, BUFFER_SIZE);
     }
 }
 
@@ -127,8 +127,8 @@ void write_favicon(int sockfd, char* resp) {
 
     // send rest of file
     send_file(fp, sockfd);
-
-    // printf("write: favicon.ico\n");
+    fclose(fp);
+     // printf("write: favicon.ico\n");
 }
 
 
@@ -267,6 +267,9 @@ void signalHandler(int dummy) {
     }
 }
 
+void sigpipe_handler(int dummy) {
+    printf("SIGPIPE caught!");
+}
 
 void clean_user_string(char *in, char *out) {
     int i = 0;
@@ -286,6 +289,7 @@ int main() {
 
     // Handle Ctrl+C
     signal(SIGINT, signalHandler);
+    signal(SIGPIPE, sigpipe_handler);
 
     sqlite3 *db;
     int db_connected = 0;
@@ -375,8 +379,8 @@ int main() {
 
 
         if (strcmp(uri, "/favicon.ico") == 0) {
-            // write_favicon(newsockfd, response_buffer);
-            write_404(newsockfd, response_buffer);
+            write_favicon(newsockfd, response_buffer);
+            // write_404(newsockfd, response_buffer);
         }
         else if (strcmp(uri, "/articles") == 0) {
             write_articles(newsockfd, response_buffer, db);
