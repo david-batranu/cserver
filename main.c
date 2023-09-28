@@ -20,6 +20,9 @@
 #define RESPONSE_SIZE 4096
 #define FILE_BUFFER_SIZE 1024*64
 
+#define QUERY_ALL_ARTICLES "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate limit 80;"
+// #define QUERY_ALL_ARTICLES "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles limit 10;"
+
 static volatile sig_atomic_t keepRunning = 1;
 
 typedef struct {
@@ -54,13 +57,14 @@ void myrespstrcat(mybuff *buff, char* src) {
     // return --buff->p;
 }
 
-void escape_quotes(char *in) {
+char *escape_quotes(char *in) {
     int i = 0;
     for (; in[i]; i++) {
         if (in[i] == '"') {
             in[i] = '\'';
         }
     }
+    return in;
 }
 
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
@@ -75,7 +79,7 @@ void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
 }
 
 void resp_404(char* resp) {
-    char basic[] = 
+    char basic[] =
         "HTTP/1.1 404 Not Found\r\n"
         "Connection: close\r\n"
         "\r\n";
@@ -240,7 +244,7 @@ void on_resp_buffer_full(void *buff) {
 }
 
 void write_articles(int sockfd, char* resp, sqlite3 *db) {
-    char query[BUFFER_SIZE] = {0};
+    // char query[BUFFER_SIZE] = {0};
 
     // char response[RESP_BUFFER_SIZE];
     // response[0] = '\0';
@@ -263,17 +267,55 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
 
     // write(sockfd, basic, strlen(basic));
 
-    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate;");
+    // sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate;");
 
-    if (query_db(db, query, db_callback_articles, &buff) != 0) {
+    if (query_db(db, QUERY_ALL_ARTICLES, db_callback_articles, &buff) != 0) {
         printf("Articles query error");
     }
+
+    // char article[BUFFER_SIZE*1024];
+    // sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
 
     myrespstrcat(&buff, "]}");
 
     write(sockfd, buff.buffer, (buff.p - buff.buffer));
 
     // write(sockfd, "]}", 2);
+}
+
+void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
+
+    mybuff buff;
+    buff.buffer = resp;
+    buff.p = resp;
+    buff.buffer_size = RESP_BUFFER_SIZE;
+    buff.callback = &on_resp_buffer_full;
+    buff.sockfd = sockfd;
+
+    char basic[] =
+        "HTTP/1.1 200 OK\r\n"
+        "Connection: close\r\n"
+        "Content-type: application/json\r\n"
+        "\r\n"
+        "{\"results\":[";
+
+    myrespstrcat(&buff, basic);
+
+    while (sqlite3_step(query) == SQLITE_ROW) {
+        myrespstrcat(&buff, "{\"uri\":\"");
+        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
+        myrespstrcat(&buff, "\",\"title\": \"");
+        myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
+        myrespstrcat(&buff, "\",\"date\":\"");
+        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
+        myrespstrcat(&buff, "\"},");
+    }
+
+    sqlite3_reset(query);
+
+    myrespstrcat(&buff, "]}");
+
+    write(sockfd, buff.buffer, (buff.p - buff.buffer));
 }
 
 
@@ -380,6 +422,17 @@ int main() {
 
     printf("server listening for connectins!\n");
 
+    sqlite3_stmt *prep_query_all_articles;
+
+    sqlite3_prepare_v3(
+        db,
+        QUERY_ALL_ARTICLES,
+        strlen(QUERY_ALL_ARTICLES),
+        SQLITE_PREPARE_PERSISTENT,
+        &prep_query_all_articles,
+        NULL
+    );
+
     while(keepRunning) {
         // Accept incoming connections
         int newsockfd = accept(sockfd, (struct sockaddr *)&host_addr, (socklen_t *)&host_addrlen);
@@ -427,7 +480,8 @@ int main() {
             // write_404(newsockfd, response_buffer);
         }
         else if (strcmp(uri, "/articles") == 0) {
-            write_articles(newsockfd, response_buffer, db);
+            // write_articles(newsockfd, response_buffer, db);
+            write_articles_prepared(newsockfd, response_buffer, prep_query_all_articles);
         }
         else if (strncmp(uri, "/greet/", 6) == 0) {
             char greet_name[BUFFER_SIZE] = {0};
@@ -449,6 +503,7 @@ int main() {
 
     printf("EXITING...\n");
     close(sockfd);
-
+    sqlite3_finalize(prep_query_all_articles);
+    sqlite3_close_v2(db);
     return 0;
 }
