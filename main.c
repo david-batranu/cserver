@@ -15,17 +15,43 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define RESP_BUFFER_SIZE 1024*64
 #define HEADER_SIZE 64
 #define RESPONSE_SIZE 4096
 #define FILE_BUFFER_SIZE 1024*64
 
 static volatile sig_atomic_t keepRunning = 1;
 
+typedef struct {
+    char *buffer;
+    int buffer_size;
+    void (*callback)(void *);
+    int sockfd;
+    char *p;
+} mybuff;
+
 // https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb
 char* mystrcat( char* dest, char* src ) {
      while (*dest) dest++;
      while ((*dest++ = *src++));
      return --dest;
+}
+
+void myrespstrcat(mybuff *buff, char* src) {
+    int remaining = buff->buffer_size - (buff->p - buff->buffer);
+    while (*src && remaining) {
+        *buff->p++ = *src++;;
+        remaining--;
+    }
+
+    if (!remaining && *src) {
+        --buff->p;
+        (*buff->callback)(buff);
+        myrespstrcat(buff, src);
+    }
+
+    // while ((*buff->p++ = *src++));
+    // return --buff->p;
 }
 
 void escape_quotes(char *in) {
@@ -166,11 +192,6 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
 
 }
 
-typedef struct {
-    char *buffer;
-    char *p;
-} mybuff;
-
 static int db_callback_articles(void *buffer, int num_columns, char **columns, char **column_names) {
     // int *fd = (int*) sockfd;
     // (*ptr)++;
@@ -181,13 +202,21 @@ static int db_callback_articles(void *buffer, int num_columns, char **columns, c
     // char article[BUFFER_SIZE*1024];
     // sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
 
-    buff->p = mystrcat(buff->p, "{\"uri\":\"");
-    buff->p = mystrcat(buff->p, columns[0]);
-    buff->p = mystrcat(buff->p, "\",\"title\": \"");
-    buff->p = mystrcat(buff->p, columns[1]);
-    buff->p = mystrcat(buff->p, "\",\"date\":\"");
-    buff->p = mystrcat(buff->p, columns[2]);
-    buff->p = mystrcat(buff->p, "\"},");
+    myrespstrcat(buff, "{\"uri\":\"");
+    myrespstrcat(buff, columns[0]);
+    myrespstrcat(buff, "\",\"title\": \"");
+    myrespstrcat(buff, columns[1]);
+    myrespstrcat(buff, "\",\"date\":\"");
+    myrespstrcat(buff, columns[2]);
+    myrespstrcat(buff, "\"},");
+
+    // buff->p = mystrcat(buff->p, "{\"uri\":\"");
+    // buff->p = mystrcat(buff->p, columns[0]);
+    // buff->p = mystrcat(buff->p, "\",\"title\": \"");
+    // buff->p = mystrcat(buff->p, columns[1]);
+    // buff->p = mystrcat(buff->p, "\",\"date\":\"");
+    // buff->p = mystrcat(buff->p, columns[2]);
+    // buff->p = mystrcat(buff->p, "\"},");
 
     // strncat(buffer, article, strlen(article));
 
@@ -202,15 +231,26 @@ static int db_callback_articles(void *buffer, int num_columns, char **columns, c
     return 0;
 };
 
+void on_resp_buffer_full(void *buff) {
+    // printf("Flush resp buffer!\n");
+    mybuff *b = (mybuff *)buff;
+    write(b->sockfd, b->buffer, b->buffer_size);
+    b->buffer[0] = '\0';
+    b->p = b->buffer;
+}
+
 void write_articles(int sockfd, char* resp, sqlite3 *db) {
     char query[BUFFER_SIZE] = {0};
 
-    char response[BUFFER_SIZE*1024];
-    response[0] = '\0';
+    // char response[RESP_BUFFER_SIZE];
+    // response[0] = '\0';
 
     mybuff buff;
-    buff.buffer = response;
-    buff.p = response;
+    buff.buffer = resp;
+    buff.p = resp;
+    buff.buffer_size = RESP_BUFFER_SIZE;
+    buff.callback = &on_resp_buffer_full;
+    buff.sockfd = sockfd;
 
     char basic[] =
         "HTTP/1.1 200 OK\r\n"
@@ -219,17 +259,21 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
         "\r\n"
         "{\"results\":[";
 
-    write(sockfd, basic, strlen(basic));
+    myrespstrcat(&buff, basic);
 
-    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate limit 80;");
+    // write(sockfd, basic, strlen(basic));
+
+    sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate;");
 
     if (query_db(db, query, db_callback_articles, &buff) != 0) {
         printf("Articles query error");
     }
 
-    write(sockfd, response, strlen(response));
+    myrespstrcat(&buff, "]}");
 
-    write(sockfd, "]}", 2);
+    write(sockfd, buff.buffer, (buff.p - buff.buffer));
+
+    // write(sockfd, "]}", 2);
 }
 
 
@@ -298,7 +342,7 @@ int main() {
 
     // int n_requests = 0;
     char request_buffer[BUFFER_SIZE];
-    char response_buffer[RESPONSE_SIZE];
+    char response_buffer[RESP_BUFFER_SIZE];
 
     // create a socket
     int sockfd = create_socket();
