@@ -26,10 +26,11 @@
 #define QUERY_SOURCE_ARTICLES "SELECT uri, title, pubdate FROM Articles WHERE sourceid = ? ORDER BY -pubdate;"
 #define QUERY_SOURCE_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE sourceid = ? AND id NOT IN (SELECT id FROM Articles WHERE sourceid = ? ORDER BY -pubdate LIMIT ?) ORDER BY -pubdate limit ?;"
 
+#define QUERY_USER_SOURCES "SELECT uri, title FROM Sources where id IN (SELECT sourceid FROM UserSources WHERE userid = ?) ORDER BY id;"
+
 #define QUERY_PAGE_SIZE 10
 // #define QUERY_ALL_ARTICLES "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles limit 10;"
 
-#define STRING_ROUTE_ARTICLES_PAGED "/articles-paged/"
 static volatile sig_atomic_t keepRunning = 1;
 
 typedef struct {
@@ -350,9 +351,42 @@ void write_articles_prepared_paginate(int sockfd, char* resp, int page_number, s
         myrespstrcat(&buff, "{\"uri\":\"");
         myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
         myrespstrcat(&buff, "\",\"title\": \"");
+        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 1));
+        myrespstrcat(&buff, "\"},");
+    }
+
+    sqlite3_reset(query);
+
+    myrespstrcat(&buff, "]}");
+
+    write(sockfd, buff.buffer, (buff.p - buff.buffer));
+}
+
+void write_user_sources_prepared(int sockfd, char* resp, int user_id, sqlite3_stmt *query) {
+
+    mybuff buff;
+    buff.buffer = resp;
+    buff.p = resp;
+    buff.buffer_size = RESP_BUFFER_SIZE;
+    buff.callback = &on_resp_buffer_full;
+    buff.sockfd = sockfd;
+
+    char basic[] =
+        "HTTP/1.1 200 OK\r\n"
+        "Connection: close\r\n"
+        "Content-type: application/json\r\n"
+        "\r\n"
+        "{\"results\":[";
+
+    myrespstrcat(&buff, basic);
+
+    sqlite3_bind_int(query, 1, user_id);
+
+    while (sqlite3_step(query) == SQLITE_ROW) {
+        myrespstrcat(&buff, "{\"uri\":\"");
+        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
+        myrespstrcat(&buff, "\",\"title\": \"");
         myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
-        myrespstrcat(&buff, "\",\"date\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
         myrespstrcat(&buff, "\"},");
     }
 
@@ -415,7 +449,7 @@ void clean_user_string(char *in, char *out) {
     }
 }
 
-void clean_page_number(char *in, char *out) {
+void clean_str_number(char *in, char *out) {
     int i = 0;
     int j = 0;
     int ch;
@@ -429,17 +463,17 @@ void clean_page_number(char *in, char *out) {
 }
 
 int str_to_int(char *str) {
-    int mul = 10;
+    int mul = 1;
     int len_str = strlen(str);
-    int i = len_str - 2;
+    int i = len_str - 1;
     int result = 0;
-    
+
     for (;i > 0; i--) {
-        mul *= mul;
+        mul *= 10;
     }
 
     for (;i < len_str; i++) {
-        result += mul * (str[i] - 0x30);
+        result += mul * (str[i] - '0');
         mul /= 10;
     }
 
@@ -452,6 +486,10 @@ int main() {
     const char *ROUTE_ARTICLES_PAGED = "/articles-paged/";
     const int ROUTE_ARTICLES_PAGED_SIZE = strlen(ROUTE_ARTICLES_PAGED);
     const char *ROUTE_ARTICLES_PAGED_SCAN = "/articles-paged/%1000s";
+
+    const char *ROUTE_USER_SOURCES = "/user-sources/";
+    const int ROUTE_USER_SOURCES_SIZE = strlen(ROUTE_USER_SOURCES);
+    const char *ROUTE_USER_ARTICLES_SCAN = "/user-sources/%1000s";
 
     // Handle Ctrl+C
     signal(SIGINT, signalHandler);
@@ -504,6 +542,7 @@ int main() {
 
     sqlite3_stmt *prep_query_all_articles;
     sqlite3_stmt *prep_query_all_articles_paginate;
+    sqlite3_stmt *prep_query_user_sources;
 
     sqlite3_prepare_v3(
         db,
@@ -520,6 +559,15 @@ int main() {
         strlen(QUERY_ALL_ARTICLES_PAGINATE),
         SQLITE_PREPARE_PERSISTENT,
         &prep_query_all_articles_paginate,
+        NULL
+    );
+
+    sqlite3_prepare_v3(
+        db,
+        QUERY_USER_SOURCES,
+        strlen(QUERY_USER_SOURCES),
+        SQLITE_PREPARE_PERSISTENT,
+        &prep_query_user_sources,
         NULL
     );
 
@@ -573,8 +621,15 @@ int main() {
             char val_page_number[BUFFER_SIZE] = {0};
             char val_clean_page_number[BUFFER_SIZE] = {0};
             sscanf(uri, ROUTE_ARTICLES_PAGED_SCAN, val_page_number);
-            clean_page_number(val_page_number, val_clean_page_number);
+            clean_str_number(val_page_number, val_clean_page_number);
             write_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_page_number), prep_query_all_articles_paginate);
+        }
+        else if (strncmp(uri, ROUTE_USER_SOURCES, ROUTE_USER_SOURCES_SIZE) == 0) {
+            char val_userid[BUFFER_SIZE] = {0};
+            char val_clean_userid[BUFFER_SIZE] = {0};
+            sscanf(uri, ROUTE_USER_ARTICLES_SCAN, val_userid);
+            clean_str_number(val_userid, val_clean_userid);
+            write_user_sources_prepared(newsockfd, response_buffer, str_to_int(val_clean_userid), prep_query_user_sources);
         }
         else if (strncmp(uri, "/greet/", 6) == 0) {
             char greet_name[BUFFER_SIZE] = {0};
