@@ -379,8 +379,6 @@ void write_source_articles_prepared_paginate(int sockfd, char* resp, int source_
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageOffset"), page_number * QUERY_PAGE_SIZE);
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
 
-    printf("source ap: %i, %i\n", source_id, page_number);
-
     while (sqlite3_step(query) == SQLITE_ROW) {
         myrespstrcat(&buff, "{\"uri\":\"");
         myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
@@ -516,8 +514,23 @@ int str_to_int(char *str) {
     return result;
 }
 
+void handle_login(int sockfd, char* req, char* resp) {
+    char userid[BUFFER_SIZE];
+    char password[BUFFER_SIZE];
+    char clean_userid[BUFFER_SIZE];
+
+    char *body_begins;
+    body_begins = strstr(req, "\n\r\n");
+
+    sscanf(body_begins, "%1000[^:]:%1000s", userid, password);
+    clean_user_string(userid, clean_userid);
+    printf("user: %s password: %s \n", clean_userid, password);
+}
+
 
 int main() {
+    const char *ROUTE_LOGIN = "/login";
+    const int ROUTE_LOGIN_SIZE = strlen(ROUTE_LOGIN);
 
     const char *ROUTE_ARTICLES_PAGED = "/articles-paged/";
     const int ROUTE_ARTICLES_PAGED_SIZE = strlen(ROUTE_ARTICLES_PAGED);
@@ -680,6 +693,9 @@ int main() {
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
             // write_404(newsockfd, response_buffer);
+        }
+        else if(strcmp(method, "POST") == 0 && strncmp(uri, ROUTE_LOGIN, ROUTE_LOGIN_SIZE) == 0) {
+            handle_login(newsockfd, request_buffer, response_buffer);
         }
         else if (strncmp(uri, ROUTE_ARTICLES_PAGED, ROUTE_ARTICLES_PAGED_SIZE) == 0) {
             char val_page_number[BUFFER_SIZE] = {0};
