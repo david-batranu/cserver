@@ -30,7 +30,6 @@
 #define QUERY_USER_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles WHERE sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageOffset) AND sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageSize;"
 
 #define QUERY_PAGE_SIZE 10
-// #define QUERY_ALL_ARTICLES "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles limit 10;"
 
 static volatile sig_atomic_t keepRunning = 1;
 
@@ -93,7 +92,6 @@ void resp_404(char* resp) {
         "Connection: close\r\n"
         "\r\n";
     strcat(resp, basic);
-    // sprintf(resp, basic, content_type, extra_headers, body);
 }
 
 
@@ -189,8 +187,6 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
 
     sprintf(query, "select greeting from user_greeting where name == '%s';", name);
 
-    // printf("query: %s\n", query);
-
     if (query_db(db, query, db_callback_greeting, greeting) != 0 || strlen(greeting) == 0) {
         sprintf(greeting, "Who?");
     }
@@ -198,22 +194,13 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
     sprintf(body, "<html><head><title>%s</title></head><body><h1>%s</h1></body></html>\n", greeting, greeting);
     resp_ok(resp, "text/html", "", body);
     write(sockfd, resp, strlen(resp));
-
-    // bzero(query, BUFFER_SIZE);
-    // bzero(greeting, BUFFER_SIZE);
-    // bzero(body, RESPONSE_SIZE);
-
 }
 
 static int db_callback_articles(void *buffer, int num_columns, char **columns, char **column_names) {
-    // int *fd = (int*) sockfd;
-    // (*ptr)++;
 
     mybuff *buff = (mybuff*) buffer;
 
     escape_quotes(columns[1]);
-    // char article[BUFFER_SIZE*1024];
-    // sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
 
     myrespstrcat(buff, "{\"uri\":\"");
     myrespstrcat(buff, columns[0]);
@@ -223,24 +210,6 @@ static int db_callback_articles(void *buffer, int num_columns, char **columns, c
     myrespstrcat(buff, columns[2]);
     myrespstrcat(buff, "\"},");
 
-    // buff->p = mystrcat(buff->p, "{\"uri\":\"");
-    // buff->p = mystrcat(buff->p, columns[0]);
-    // buff->p = mystrcat(buff->p, "\",\"title\": \"");
-    // buff->p = mystrcat(buff->p, columns[1]);
-    // buff->p = mystrcat(buff->p, "\",\"date\":\"");
-    // buff->p = mystrcat(buff->p, columns[2]);
-    // buff->p = mystrcat(buff->p, "\"},");
-
-    // strncat(buffer, article, strlen(article));
-
-    // write(*fd, article, strlen(article));
-
-    // printf("count: %i", (int**)buffer);
-    // printf("Got %d columns!\n", num_columns);
-    // if (num_columns == 1) {
-    //     // printf("Columns: %s\n", columns[0]);
-    //     sprintf((char *)buffer, "%s", columns[0]);
-    // }
     return 0;
 };
 
@@ -253,11 +222,6 @@ void on_resp_buffer_full(void *buff) {
 }
 
 void write_articles(int sockfd, char* resp, sqlite3 *db) {
-    // char query[BUFFER_SIZE] = {0};
-
-    // char response[RESP_BUFFER_SIZE];
-    // response[0] = '\0';
-
     mybuff buff;
     buff.buffer = resp;
     buff.p = resp;
@@ -274,22 +238,13 @@ void write_articles(int sockfd, char* resp, sqlite3 *db) {
 
     myrespstrcat(&buff, basic);
 
-    // write(sockfd, basic, strlen(basic));
-
-    // sprintf(query, "SELECT uri, quote(title), datetime(pubdate, 'unixepoch') FROM Articles ORDER BY -pubdate;");
-
     if (query_db(db, QUERY_ALL_ARTICLES, db_callback_articles, &buff) != 0) {
         printf("Articles query error");
     }
 
-    // char article[BUFFER_SIZE*1024];
-    // sprintf(article, "{\"uri\":\"%s\",\"title\": \"%s\",\"date\":\"%s\"},", columns[0], columns[1], columns[2]);
-
     myrespstrcat(&buff, "]}");
 
     write(sockfd, buff.buffer, (buff.p - buff.buffer));
-
-    // write(sockfd, "]}", 2);
 }
 
 void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
