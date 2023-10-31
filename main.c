@@ -12,6 +12,7 @@
 #include <stdlib.h>
 /* #include <sqlite3.h> */
 #include "dbutil.c"
+#include "queries.c"
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -22,17 +23,6 @@
 
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"
-
-#define QUERY_ALL_ARTICLES "SELECT uri, title, pubdate FROM Articles ORDER BY -pubdate;"
-#define QUERY_ALL_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles ORDER BY -pubdate LIMIT ?) ORDER BY -pubdate limit ?;"
-
-#define QUERY_SOURCE_ARTICLES "SELECT uri, title, pubdate FROM Articles WHERE sourceid = ? ORDER BY -pubdate;"
-#define QUERY_SOURCE_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE sourceid = :SourceID AND id NOT IN (SELECT id FROM Articles WHERE sourceid = :SourceID ORDER BY -pubdate LIMIT :PageOffset) ORDER BY -pubdate limit :PageSize;"
-
-#define QUERY_USER_SOURCES "SELECT uri, title FROM Sources where id IN (SELECT sourceid FROM UserSources WHERE userid = ?) ORDER BY id;"
-#define QUERY_USER_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles WHERE sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageOffset) AND sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageSize;"
-
-#define QUERY_PAGE_SIZE 10
 
 static volatile sig_atomic_t keepRunning = 1;
 
@@ -520,11 +510,7 @@ int main() {
     const int ROUTE_SOURCE_ARTICLES_PAGED_SIZE = strlen(ROUTE_SOURCE_ARTICLES_PAGED);
     const char *ROUTE_SOURCE_ARTICLES_PAGED_SCAN = "/source-articles-paged/%1000[^/]/%1000[^'/']s";
 
-    sqlite3_stmt *prep_query_all_articles;
-    sqlite3_stmt *prep_query_all_articles_paginate;
-    sqlite3_stmt *prep_query_user_sources;
-    sqlite3_stmt *prep_query_user_articles_paginate;
-    sqlite3_stmt *prep_query_source_articles_paginate;
+    queries queries;
 
     sqlite3 *db;
     int db_connected = 0;
@@ -572,51 +558,7 @@ int main() {
 
     printf("server listening for connectins!\n");
 
-
-    sqlite3_prepare_v3(
-        db,
-        QUERY_ALL_ARTICLES,
-        strlen(QUERY_ALL_ARTICLES),
-        SQLITE_PREPARE_PERSISTENT,
-        &prep_query_all_articles,
-        NULL
-    );
-
-    sqlite3_prepare_v3(
-        db,
-        QUERY_ALL_ARTICLES_PAGINATE,
-        strlen(QUERY_ALL_ARTICLES_PAGINATE),
-        SQLITE_PREPARE_PERSISTENT,
-        &prep_query_all_articles_paginate,
-        NULL
-    );
-
-    sqlite3_prepare_v3(
-        db,
-        QUERY_USER_SOURCES,
-        strlen(QUERY_USER_SOURCES),
-        SQLITE_PREPARE_PERSISTENT,
-        &prep_query_user_sources,
-        NULL
-    );
-
-    sqlite3_prepare_v3(
-        db,
-        QUERY_USER_ARTICLES_PAGINATE,
-        strlen(QUERY_USER_ARTICLES_PAGINATE),
-        SQLITE_PREPARE_PERSISTENT,
-        &prep_query_user_articles_paginate,
-        NULL
-    );
-
-    sqlite3_prepare_v3(
-        db,
-        QUERY_SOURCE_ARTICLES_PAGINATE,
-        strlen(QUERY_SOURCE_ARTICLES_PAGINATE),
-        SQLITE_PREPARE_PERSISTENT,
-        &prep_query_source_articles_paginate,
-        NULL
-    );
+    db_prepare_queries(db, &queries);
 
     /* Handle Ctrl+C */
     signal(SIGINT, signalHandler);
@@ -680,14 +622,14 @@ int main() {
             char val_clean_page_number[BUFFER_SIZE] = {0};
             sscanf(uri, ROUTE_ARTICLES_PAGED_SCAN, val_page_number);
             clean_str_number(val_page_number, val_clean_page_number);
-            write_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_page_number), prep_query_all_articles_paginate);
+            write_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_page_number), queries.prep_query_all_articles_paginate);
         }
         else if (strncmp(uri, ROUTE_USER_SOURCES, ROUTE_USER_SOURCES_SIZE) == 0) {
             char val_userid[BUFFER_SIZE] = {0};
             char val_clean_userid[BUFFER_SIZE] = {0};
             sscanf(uri, ROUTE_USER_ARTICLES_SCAN, val_userid);
             clean_str_number(val_userid, val_clean_userid);
-            write_user_sources_prepared(newsockfd, response_buffer, str_to_int(val_clean_userid), prep_query_user_sources);
+            write_user_sources_prepared(newsockfd, response_buffer, str_to_int(val_clean_userid), queries.prep_query_user_sources);
         }
         else if (strncmp(uri, ROUTE_USER_ARTICLES_PAGED, ROUTE_USER_ARTICLES_PAGED_SIZE) == 0) {
             char val_page_number[BUFFER_SIZE] = {0};
@@ -697,7 +639,7 @@ int main() {
             sscanf(uri, ROUTE_USER_ARTICLES_PAGED_SCAN, val_userid, val_page_number);
             clean_str_number(val_userid, val_clean_userid);
             clean_str_number(val_page_number, val_clean_page_number);
-            write_user_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), prep_query_user_articles_paginate);
+            write_user_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries.prep_query_user_articles_paginate);
         }
         else if (strncmp(uri, ROUTE_SOURCE_ARTICLES_PAGED, ROUTE_SOURCE_ARTICLES_PAGED_SIZE) == 0) {
             char val_page_number[BUFFER_SIZE] = {0};
@@ -707,7 +649,7 @@ int main() {
             sscanf(uri, ROUTE_SOURCE_ARTICLES_PAGED_SCAN, val_sourceid, val_page_number);
             clean_str_number(val_sourceid, val_clean_sourceid);
             clean_str_number(val_page_number, val_clean_page_number);
-            write_source_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_sourceid), str_to_int(val_clean_page_number), prep_query_source_articles_paginate);
+            write_source_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_sourceid), str_to_int(val_clean_page_number), queries.prep_query_source_articles_paginate);
         }
         else if (strncmp(uri, "/greet/", 6) == 0) {
             char greet_name[BUFFER_SIZE] = {0};
@@ -729,7 +671,7 @@ int main() {
 
     printf("EXITING...\n");
     close(sockfd);
-    sqlite3_finalize(prep_query_all_articles);
+    db_finalize_queries(&queries);
     sqlite3_close_v2(db);
     return 0;
 }
