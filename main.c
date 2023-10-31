@@ -489,8 +489,23 @@ void handle_login(int sockfd, char* req, char* resp) {
     printf("user: %s password: %s \n", clean_userid, password);
 }
 
+typedef struct {
+    const char *path;
+    const char *scan;
+    int size;
+} route;
+
+void make_simple_route(route *route, char *path) {
+    route->path = path;
+    route->scan = '\0';
+    route->size = strlen(path);
+}
+
 
 int main() {
+
+    route route_login;
+
     const char *ROUTE_LOGIN = "/login";
     const int ROUTE_LOGIN_SIZE = strlen(ROUTE_LOGIN);
 
@@ -527,6 +542,8 @@ int main() {
     struct sockaddr_in client_addr;
     int client_addrlen = sizeof(client_addr);
 
+    make_simple_route(&route_login, "/login");
+    printf("ROUTE: %s | %s | %i\n", route_login.path, route_login.scan, route_login.size);
     db_connected = connect_db("main.db", &db);
 
     /* create a socket */
