@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == :UserName;"
+
 #define QUERY_ALL_ARTICLES "SELECT uri, title, pubdate FROM Articles ORDER BY -pubdate;"
 #define QUERY_ALL_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles ORDER BY -pubdate LIMIT ?) ORDER BY -pubdate limit ?;"
 
@@ -21,6 +23,7 @@
 
 
 typedef struct {
+    sqlite3_stmt *prep_query_greet_user;
     sqlite3_stmt *prep_query_all_articles;
     sqlite3_stmt *prep_query_all_articles_paginate;
     sqlite3_stmt *prep_query_search_all_articles_paginate;
@@ -33,6 +36,15 @@ typedef struct {
 
 
 void db_prepare_queries(sqlite3 *db, queries *q) {
+
+    sqlite3_prepare_v3(
+        db,
+        QUERY_GREET_USER,
+        strlen(QUERY_GREET_USER),
+        SQLITE_PREPARE_PERSISTENT,
+        &q->prep_query_greet_user,
+        NULL
+    );
 
     sqlite3_prepare_v3(
         db,

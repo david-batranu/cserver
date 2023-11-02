@@ -24,7 +24,7 @@
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"
 
-#define NR_ROUTES 1
+#define NR_ROUTES 5
 
 
 #define GET "GET"
@@ -513,8 +513,9 @@ void make_route(Route *route, char *method, char *path, char *scan, void (*handl
 }
 
 
-void route_handler_login(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-}
+/* void route_handler_login(int sockfd, char *uri, char *resp, queries *queries, Route *route) { */
+/*     handle_login(sockfd, request_buffer, response_buffer); */
+/* } */
 
 void route_handler_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
     char val_page_number[BUFFER_SIZE] = {0};
@@ -524,41 +525,69 @@ void route_handler_articles_paged(int sockfd, char *uri, char *resp, queries *qu
     write_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_page_number), queries->prep_query_all_articles_paginate);
 }
 
-void handle_routes(int sockfd, char *method, char *uri, char *resp, queries *queries, Route *routes) {
+void route_handler_user_sources(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+    char val_userid[BUFFER_SIZE] = {0};
+    char val_clean_userid[BUFFER_SIZE] = {0};
+    sscanf(uri, route->scan, val_userid);
+    clean_str_number(val_userid, val_clean_userid);
+    write_user_sources_prepared(sockfd, resp, str_to_int(val_clean_userid), queries->prep_query_user_sources);
+}
+
+void route_handler_user_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+    char val_page_number[BUFFER_SIZE] = {0};
+    char val_clean_page_number[BUFFER_SIZE] = {0};
+    char val_userid[BUFFER_SIZE] = {0};
+    char val_clean_userid[BUFFER_SIZE] = {0};
+    sscanf(uri, route->scan, val_userid, val_page_number);
+    clean_str_number(val_userid, val_clean_userid);
+    clean_str_number(val_page_number, val_clean_page_number);
+    write_user_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries->prep_query_user_articles_paginate);
+}
+
+void route_handler_source_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+    char val_page_number[BUFFER_SIZE] = {0};
+    char val_clean_page_number[BUFFER_SIZE] = {0};
+    char val_sourceid[BUFFER_SIZE] = {0};
+    char val_clean_sourceid[BUFFER_SIZE] = {0};
+    sscanf(uri, route->scan, val_sourceid, val_page_number);
+    clean_str_number(val_sourceid, val_clean_sourceid);
+    clean_str_number(val_page_number, val_clean_page_number);
+    write_source_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_sourceid), str_to_int(val_clean_page_number), queries->prep_query_source_articles_paginate);
+}
+
+void route_handler_greet(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+    char greet_name[BUFFER_SIZE] = {0};
+    char clean_greet_name[BUFFER_SIZE] = {0};
+    sscanf(uri,route->scan, greet_name);
+    clean_user_string(greet_name, clean_greet_name);
+    printf("greet: %s (%s)\n", greet_name, clean_greet_name);
+    /* if (db_connected) { */
+    /*     write_greeting(sockfd, resp, clean_greet_name, db); */
+    /* } */
+}
+
+
+int handle_routes(int sockfd, char *method, char *uri, char *resp, queries *queries, Route *routes) {
+    int handled = 0;
     int i = 0;
     while(i < NR_ROUTES) {
         printf("%s | %s | %s | %ui \n", routes[i].path, method, routes[i].method, routes[i].size);
-        if (strcmp(method, routes[i].method) == 0) {
+        if (strcmp(method, routes[i].method) == 0 && strncmp(uri, routes[i].path, routes[i].size) == 0) {
             printf("route: %s\n", routes[i].path);
             routes[i].handler(sockfd, uri, resp, queries, &routes[i]);
+            handled = 1;
+            break;
         }
         i++;
     }
+    return handled;
 }
 
 
 int main() {
+    int handled_route = 0;
 
-    Route routes[NR_ROUTES] = {0};
-
-    const char *ROUTE_LOGIN = "/login";
-    const int ROUTE_LOGIN_SIZE = strlen(ROUTE_LOGIN);
-
-    const char *ROUTE_ARTICLES_PAGED = "/articles-paged/";
-    const int ROUTE_ARTICLES_PAGED_SIZE = strlen(ROUTE_ARTICLES_PAGED);
-    const char *ROUTE_ARTICLES_PAGED_SCAN = "/articles-paged/%1000s";
-
-    const char *ROUTE_USER_SOURCES = "/user-sources/";
-    const int ROUTE_USER_SOURCES_SIZE = strlen(ROUTE_USER_SOURCES);
-    const char *ROUTE_USER_ARTICLES_SCAN = "/user-sources/%1000s";
-
-    const char *ROUTE_USER_ARTICLES_PAGED = "/user-articles-paged/";
-    const int ROUTE_USER_ARTICLES_PAGED_SIZE = strlen(ROUTE_USER_ARTICLES_PAGED);
-    const char *ROUTE_USER_ARTICLES_PAGED_SCAN = "/user-articles-paged/%1000[^/]/%1000[^'/']s";
-
-    const char *ROUTE_SOURCE_ARTICLES_PAGED = "/source-articles-paged/";
-    const int ROUTE_SOURCE_ARTICLES_PAGED_SIZE = strlen(ROUTE_SOURCE_ARTICLES_PAGED);
-    const char *ROUTE_SOURCE_ARTICLES_PAGED_SCAN = "/source-articles-paged/%1000[^/]/%1000[^'/']s";
+    Route routes[NR_ROUTES];
 
     queries queries;
 
@@ -578,7 +607,12 @@ int main() {
     int client_addrlen = sizeof(client_addr);
 
     /* make_route(&routes[0], "/login", '\0', &route_handler_login); */
+    /* make_route(&routes[0], "POST", "/login", '\0', &route_handler_login); */
     make_route(&routes[0], "GET", "/articles-paged/", "/articles-paged/%1000s", &route_handler_articles_paged);
+    make_route(&routes[1], "GET", "/user-sources/", "/user-sources/%1000s", &route_handler_user_sources);
+    make_route(&routes[2], "GET", "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged);
+    make_route(&routes[3], "GET", "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged);
+    make_route(&routes[4], "GET", "/greet/", "/greet/%128s", &route_handler_greet);
     printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
     db_connected = connect_db("main.db", &db);
 
@@ -661,60 +695,14 @@ int main() {
                 uri
               );
         */
-        /* handle_routes(newsockfd, method, uri, response_buffer, &queries, routes); */
+        handled_route = handle_routes(newsockfd, method, uri, response_buffer, &queries, routes);
 
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
             /* write_404(newsockfd, response_buffer); */
         }
-        else if(strcmp(method, "POST") == 0 && strncmp(uri, ROUTE_LOGIN, ROUTE_LOGIN_SIZE) == 0) {
-            handle_login(newsockfd, request_buffer, response_buffer);
-        }
-        else if (strncmp(uri, ROUTE_ARTICLES_PAGED, ROUTE_ARTICLES_PAGED_SIZE) == 0) {
-            char val_page_number[BUFFER_SIZE] = {0};
-            char val_clean_page_number[BUFFER_SIZE] = {0};
-            sscanf(uri, ROUTE_ARTICLES_PAGED_SCAN, val_page_number);
-            clean_str_number(val_page_number, val_clean_page_number);
-            write_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_page_number), queries.prep_query_all_articles_paginate);
-        }
-        else if (strncmp(uri, ROUTE_USER_SOURCES, ROUTE_USER_SOURCES_SIZE) == 0) {
-            char val_userid[BUFFER_SIZE] = {0};
-            char val_clean_userid[BUFFER_SIZE] = {0};
-            sscanf(uri, ROUTE_USER_ARTICLES_SCAN, val_userid);
-            clean_str_number(val_userid, val_clean_userid);
-            write_user_sources_prepared(newsockfd, response_buffer, str_to_int(val_clean_userid), queries.prep_query_user_sources);
-        }
-        else if (strncmp(uri, ROUTE_USER_ARTICLES_PAGED, ROUTE_USER_ARTICLES_PAGED_SIZE) == 0) {
-            char val_page_number[BUFFER_SIZE] = {0};
-            char val_clean_page_number[BUFFER_SIZE] = {0};
-            char val_userid[BUFFER_SIZE] = {0};
-            char val_clean_userid[BUFFER_SIZE] = {0};
-            sscanf(uri, ROUTE_USER_ARTICLES_PAGED_SCAN, val_userid, val_page_number);
-            clean_str_number(val_userid, val_clean_userid);
-            clean_str_number(val_page_number, val_clean_page_number);
-            write_user_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries.prep_query_user_articles_paginate);
-        }
-        else if (strncmp(uri, ROUTE_SOURCE_ARTICLES_PAGED, ROUTE_SOURCE_ARTICLES_PAGED_SIZE) == 0) {
-            char val_page_number[BUFFER_SIZE] = {0};
-            char val_clean_page_number[BUFFER_SIZE] = {0};
-            char val_sourceid[BUFFER_SIZE] = {0};
-            char val_clean_sourceid[BUFFER_SIZE] = {0};
-            sscanf(uri, ROUTE_SOURCE_ARTICLES_PAGED_SCAN, val_sourceid, val_page_number);
-            clean_str_number(val_sourceid, val_clean_sourceid);
-            clean_str_number(val_page_number, val_clean_page_number);
-            write_source_articles_prepared_paginate(newsockfd, response_buffer, str_to_int(val_clean_sourceid), str_to_int(val_clean_page_number), queries.prep_query_source_articles_paginate);
-        }
-        else if (strncmp(uri, "/greet/", 6) == 0) {
-            char greet_name[BUFFER_SIZE] = {0};
-            char clean_greet_name[BUFFER_SIZE] = {0};
-            sscanf(uri, "/greet/%128s", greet_name);
-            clean_user_string(greet_name, clean_greet_name);
-            /* printf("greet: %s (%s)\n", greet_name, clean_greet_name); */
-            if (db_connected) {
-                write_greeting(newsockfd, response_buffer, clean_greet_name, db);
-            }
-        }
-        else {
+
+        if (!handled_route) {
             write_default(newsockfd, response_buffer);
         }
 
