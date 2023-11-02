@@ -24,6 +24,12 @@
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"
 
+#define NR_ROUTES 1
+
+
+#define GET "GET"
+#define POST "POST"
+
 static volatile sig_atomic_t keepRunning = 1;
 
 typedef struct {
@@ -489,22 +495,51 @@ void handle_login(int sockfd, char* req, char* resp) {
     printf("user: %s password: %s \n", clean_userid, password);
 }
 
-typedef struct {
+typedef struct Route Route;
+struct Route {
+    short unsigned int size;
+    const char *method;
     const char *path;
     const char *scan;
-    int size;
-} route;
+    void (*handler)(int sockfd, char *uri, char *resp, queries *q, Route *route);
+};
 
-void make_simple_route(route *route, char *path) {
+void make_route(Route *route, char *method, char *path, char *scan, void (*handler)(int sockfd, char *uri, char *resp, queries *q, struct Route *route)) {
+    route->method = method;
     route->path = path;
-    route->scan = '\0';
+    route->scan = scan;
     route->size = strlen(path);
+    route->handler = handler;
+}
+
+
+void route_handler_login(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+}
+
+void route_handler_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
+    char val_page_number[BUFFER_SIZE] = {0};
+    char val_clean_page_number[BUFFER_SIZE] = {0};
+    sscanf(uri, route->scan, val_page_number);
+    clean_str_number(val_page_number, val_clean_page_number);
+    write_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_page_number), queries->prep_query_all_articles_paginate);
+}
+
+void handle_routes(int sockfd, char *method, char *uri, char *resp, queries *queries, Route *routes) {
+    int i = 0;
+    while(i < NR_ROUTES) {
+        printf("%s | %s | %s | %ui \n", routes[i].path, method, routes[i].method, routes[i].size);
+        if (strcmp(method, routes[i].method) == 0) {
+            printf("route: %s\n", routes[i].path);
+            routes[i].handler(sockfd, uri, resp, queries, &routes[i]);
+        }
+        i++;
+    }
 }
 
 
 int main() {
 
-    route route_login;
+    Route routes[NR_ROUTES] = {0};
 
     const char *ROUTE_LOGIN = "/login";
     const int ROUTE_LOGIN_SIZE = strlen(ROUTE_LOGIN);
@@ -542,8 +577,9 @@ int main() {
     struct sockaddr_in client_addr;
     int client_addrlen = sizeof(client_addr);
 
-    make_simple_route(&route_login, "/login");
-    printf("ROUTE: %s | %s | %i\n", route_login.path, route_login.scan, route_login.size);
+    /* make_route(&routes[0], "/login", '\0', &route_handler_login); */
+    make_route(&routes[0], "GET", "/articles-paged/", "/articles-paged/%1000s", &route_handler_articles_paged);
+    printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
     db_connected = connect_db("main.db", &db);
 
     /* create a socket */
@@ -625,7 +661,7 @@ int main() {
                 uri
               );
         */
-
+        /* handle_routes(newsockfd, method, uri, response_buffer, &queries, routes); */
 
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
