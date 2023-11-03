@@ -1,6 +1,7 @@
-#include <sqlite3.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "queries.h"
 
 #define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == :UserName;"
 
@@ -18,21 +19,6 @@
 #define QUERY_USER_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles WHERE sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageOffset) AND sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageSize;"
 
 #define QUERY_SEARCH_USER_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE title LIKE '%:SearchString%' AND id NOT IN (SELECT id FROM Articles WHERE sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageOffset) AND sourceid IN (SELECT sourceid FROM UserSources WHERE userid = :UserID) ORDER BY -pubdate LIMIT :PageSize;"
-
-#define QUERY_PAGE_SIZE 10
-
-
-typedef struct {
-    sqlite3_stmt *prep_query_greet_user;
-    sqlite3_stmt *prep_query_all_articles;
-    sqlite3_stmt *prep_query_all_articles_paginate;
-    sqlite3_stmt *prep_query_search_all_articles_paginate;
-    sqlite3_stmt *prep_query_user_sources;
-    sqlite3_stmt *prep_query_user_articles_paginate;
-    sqlite3_stmt *prep_query_search_user_articles_paginate;
-    sqlite3_stmt *prep_query_source_articles_paginate;
-    sqlite3_stmt *prep_query_search_source_articles_paginate;
-} queries;
 
 
 void db_prepare_queries(sqlite3 *db, queries *q) {

@@ -1,2 +1,2 @@
 CompileFlags:
-    Add: [-W, -Wall, -pedantic, -pedantic-errors, -std=c89]
+    Add: [-W, -Wall, -pedantic, -pedantic-errors, -std=c89, -xc]

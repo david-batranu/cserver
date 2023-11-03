@@ -12,7 +12,8 @@
 #include <stdlib.h>
 /* #include <sqlite3.h> */
 #include "dbutil.c"
-#include "queries.c"
+#include "queries.h"
+#include "routes.h"
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -23,9 +24,6 @@
 
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"
-
-#define NR_ROUTES 5
-
 
 #define GET "GET"
 #define POST "POST"
@@ -196,51 +194,12 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
     write(sockfd, resp, strlen(resp));
 }
 
-static int db_callback_articles(void *buffer, int num_columns, char **columns, char **column_names) {
-
-    mybuff *buff = (mybuff*) buffer;
-
-    escape_quotes(columns[1]);
-
-    myrespstrcat(buff, "{\"uri\":\"");
-    myrespstrcat(buff, columns[0]);
-    myrespstrcat(buff, "\",\"title\": \"");
-    myrespstrcat(buff, columns[1]);
-    myrespstrcat(buff, "\",\"date\":\"");
-    myrespstrcat(buff, columns[2]);
-    myrespstrcat(buff, "\"},");
-
-    return 0;
-}
-
 void on_resp_buffer_full(void *buff) {
     /* printf("Flush resp buffer!\n"); */
     mybuff *b = (mybuff *)buff;
     write(b->sockfd, b->buffer, b->buffer_size);
     b->buffer[0] = '\0';
     b->p = b->buffer;
-}
-
-void write_articles(int sockfd, char* resp, sqlite3 *db) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-
-    myrespstrcat(&buff, basic);
-
-    if (query_db(db, QUERY_ALL_ARTICLES, db_callback_articles, &buff) != 0) {
-        printf("Articles query error");
-    }
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
 }
 
 void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
@@ -495,24 +454,6 @@ void handle_login(int sockfd, char* req, char* resp) {
     printf("user: %s password: %s \n", clean_userid, password);
 }
 
-typedef struct Route Route;
-struct Route {
-    short unsigned int size;
-    const char *method;
-    const char *path;
-    const char *scan;
-    void (*handler)(int sockfd, char *uri, char *resp, queries *q, Route *route);
-};
-
-void make_route(Route *route, char *method, char *path, char *scan, void (*handler)(int sockfd, char *uri, char *resp, queries *q, struct Route *route)) {
-    route->method = method;
-    route->path = path;
-    route->scan = scan;
-    route->size = strlen(path);
-    route->handler = handler;
-}
-
-
 /* void route_handler_login(int sockfd, char *uri, char *resp, queries *queries, Route *route) { */
 /*     handle_login(sockfd, request_buffer, response_buffer); */
 /* } */
@@ -567,21 +508,6 @@ void route_handler_greet(int sockfd, char *uri, char *resp, queries *queries, Ro
 }
 
 
-int handle_routes(int sockfd, char *method, char *uri, char *resp, queries *queries, Route *routes) {
-    int handled = 0;
-    int i = 0;
-    while(i < NR_ROUTES) {
-        printf("%s | %s | %s | %ui \n", routes[i].path, method, routes[i].method, routes[i].size);
-        if (strcmp(method, routes[i].method) == 0 && strncmp(uri, routes[i].path, routes[i].size) == 0) {
-            printf("route: %s\n", routes[i].path);
-            routes[i].handler(sockfd, uri, resp, queries, &routes[i]);
-            handled = 1;
-            break;
-        }
-        i++;
-    }
-    return handled;
-}
 
 
 int main() {

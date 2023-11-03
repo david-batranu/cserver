@@ -1,10 +1,10 @@
 CC=gcc
-CFLAGS=-Wall -ggdb -std=c89 -pedantic
+CFLAGS=-Wall -ggdb -std=c89 -pedantic -x c
 CLIBS=-lsqlite3
 OBJECTS=main.o
 
 all: build
 build: $(OBJECTS)
-	$(CC) $(CFLAGS) main.c $(CLIBS) -o main.o
+	$(CC) $(CFLAGS) routes.c queries.c main.c $(CLIBS) -o main.o
 
 
