@@ -141,19 +141,17 @@ void write_404(int sockfd, char* resp) {
 }
 
 void write_favicon(int sockfd, char* resp) {
-    char extra_headers[HEADER_SIZE] = {0};
+  char extra_headers[HEADER_SIZE] = {0};
 
-    FILE *fp;
-    fp = fopen("favicon.ico", "r");
-    if (fp == NULL) {
-        perror("opening favicon.ico");
-    }
+  FILE *fp;
+  fp = fopen("favicon.ico", "r");
+  if (fp != NULL) {
 
     sprintf(
-            extra_headers,
-            "Content-length: %ld\r\n",
-            get_file_size(fp)
-           );
+        extra_headers,
+        "Content-length: %ld\r\n",
+        get_file_size(fp)
+        );
 
     resp_ok(resp, "image/x-icon", extra_headers, "");
 
@@ -163,7 +161,13 @@ void write_favicon(int sockfd, char* resp) {
     /* send rest of file */
     send_file(fp, sockfd);
     fclose(fp);
-     /* printf("write: favicon.ico\n"); */
+    /* printf("write: favicon.ico\n"); */
+  }
+  else {
+    perror("opening favicon.ico");
+    write_404(sockfd, resp);
+  }
+
 }
 
 
@@ -626,9 +630,11 @@ int main() {
         if (strcmp(uri, "/favicon.ico") == 0) {
             write_favicon(newsockfd, response_buffer);
             /* write_404(newsockfd, response_buffer); */
+            handled_route = 1;
         }
 
         if (!handled_route) {
+            printf("Could not handle route: %s\n", uri);
             write_default(newsockfd, response_buffer);
         }
 
