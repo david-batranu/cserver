@@ -3,6 +3,10 @@
 
 #define BUFFER_SIZE 1024
 #define RESP_BUFFER_SIZE 1024*64
+#define FILE_BUFFER_SIZE 1024*64
+
+#define HEADER_SIZE 64
+#define RESPONSE_SIZE 4096
 
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"

@@ -84,3 +84,45 @@ char *escape_quotes(char *in) {
     return in;
 }
 
+/* https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb */
+char* mystrcat( char* dest, char* src ) {
+     while (*dest) dest++;
+     while ((*dest++ = *src++));
+     return --dest;
+}
+
+long get_file_size(FILE *fp) {
+    long size;
+    fseek(fp, 0L, SEEK_END);
+    size = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    return size;
+}
+
+
+void send_file(FILE* fp, int sockfd) {
+    char buffer[FILE_BUFFER_SIZE];
+
+    for (;;) {
+        int nread = fread(buffer, 1, FILE_BUFFER_SIZE, fp);
+        /* printf("Bytes read %d \n", nread); */
+        if (nread > 0) {
+            if (write(sockfd, buffer, nread) == -1) {
+                perror("sending file...");
+            }
+        }
+
+        else if (nread < FILE_BUFFER_SIZE) {
+            if (feof(fp)) {
+                /* printf("End of file.\n"); */
+                break;
+            }
+            else if (ferror(fp)) {
+                fprintf(stderr, "Error reading file.\n");
+            }
+            break;
+        }
+
+        /* bzero(buffer, BUFFER_SIZE); */
+    }
+}

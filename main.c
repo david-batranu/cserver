@@ -20,21 +20,12 @@
 #include "query_handlers.h"
 
 #define PORT 8080
-#define HEADER_SIZE 64
-#define RESPONSE_SIZE 4096
-#define FILE_BUFFER_SIZE 1024*64
 
 #define GET "GET"
 #define POST "POST"
 
 static volatile sig_atomic_t keepRunning = 1;
 
-/* https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb */
-char* mystrcat( char* dest, char* src ) {
-     while (*dest) dest++;
-     while ((*dest++ = *src++));
-     return --dest;
-}
 
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
     char basic[] =
@@ -56,41 +47,6 @@ void resp_404(char* resp) {
 }
 
 
-long get_file_size(FILE *fp) {
-    long size;
-    fseek(fp, 0L, SEEK_END);
-    size = ftell(fp);
-    fseek(fp, 0L, SEEK_SET);
-    return size;
-}
-
-
-void send_file(FILE* fp, int sockfd) {
-    char buffer[FILE_BUFFER_SIZE];
-
-    for (;;) {
-        int nread = fread(buffer, 1, FILE_BUFFER_SIZE, fp);
-        /* printf("Bytes read %d \n", nread); */
-        if (nread > 0) {
-            if (write(sockfd, buffer, nread) == -1) {
-                perror("sending file...");
-            }
-        }
-
-        else if (nread < FILE_BUFFER_SIZE) {
-            if (feof(fp)) {
-                /* printf("End of file.\n"); */
-                break;
-            }
-            else if (ferror(fp)) {
-                fprintf(stderr, "Error reading file.\n");
-            }
-            break;
-        }
-
-        /* bzero(buffer, BUFFER_SIZE); */
-    }
-}
 
 
 void write_default(int sockfd, char* resp) {

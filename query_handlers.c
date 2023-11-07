@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "defs.h"
 #include "queries.h"
 #include "utils.h"
