@@ -14,62 +14,26 @@
 #include "dbutil.c"
 #include "queries.h"
 #include "routes.h"
+#include "defs.h"
+#include "utils.h"
+#include "route_handlers.h"
+#include "query_handlers.h"
 
 #define PORT 8080
-#define BUFFER_SIZE 1024
-#define RESP_BUFFER_SIZE 1024*64
 #define HEADER_SIZE 64
 #define RESPONSE_SIZE 4096
 #define FILE_BUFFER_SIZE 1024*64
-
-#define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
-#define JSON_RESP_FOOTER "]}"
 
 #define GET "GET"
 #define POST "POST"
 
 static volatile sig_atomic_t keepRunning = 1;
 
-typedef struct {
-    char *buffer;
-    int buffer_size;
-    void (*callback)(void *);
-    int sockfd;
-    char *p;
-} mybuff;
-
 /* https://beribey.medium.com/why-string-concatenation-so-slow-745f79e22eeb */
 char* mystrcat( char* dest, char* src ) {
      while (*dest) dest++;
      while ((*dest++ = *src++));
      return --dest;
-}
-
-void myrespstrcat(mybuff *buff, char* src) {
-    int remaining = buff->buffer_size - (buff->p - buff->buffer);
-    while (*src && remaining) {
-        *buff->p++ = *src++;;
-        remaining--;
-    }
-
-    if (!remaining && *src) {
-        --buff->p;
-        (*buff->callback)(buff);
-        myrespstrcat(buff, src);
-    }
-
-    /* while ((*buff->p++ = *src++)); */
-    /* return --buff->p; */
-}
-
-char *escape_quotes(char *in) {
-    int i = 0;
-    for (; in[i]; i++) {
-        if (in[i] == '"') {
-            in[i] = '\'';
-        }
-    }
-    return in;
 }
 
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
@@ -198,14 +162,6 @@ void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
     write(sockfd, resp, strlen(resp));
 }
 
-void on_resp_buffer_full(void *buff) {
-    /* printf("Flush resp buffer!\n"); */
-    mybuff *b = (mybuff *)buff;
-    write(b->sockfd, b->buffer, b->buffer_size);
-    b->buffer[0] = '\0';
-    b->p = b->buffer;
-}
-
 void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
     mybuff buff;
     char basic[] = JSON_RESP_HEADER;
@@ -225,131 +181,6 @@ void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
         myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
         myrespstrcat(&buff, "\",\"date\":\"");
         myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
-        myrespstrcat(&buff, "\"},");
-    }
-
-    sqlite3_reset(query);
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
-}
-
-void write_articles_prepared_paginate(int sockfd, char* resp, int page_number, sqlite3_stmt *query) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-    myrespstrcat(&buff, basic);
-
-    sqlite3_bind_int(query, 1, page_number * QUERY_PAGE_SIZE);
-    sqlite3_bind_int(query, 2, QUERY_PAGE_SIZE);
-
-    while (sqlite3_step(query) == SQLITE_ROW) {
-        myrespstrcat(&buff, "{\"uri\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
-        myrespstrcat(&buff, "\",\"title\": \"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 1));
-        myrespstrcat(&buff, "\"},");
-    }
-
-    sqlite3_reset(query);
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
-}
-
-void write_user_articles_prepared_paginate(int sockfd, char* resp, int user_id, int page_number, sqlite3_stmt *query) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-    myrespstrcat(&buff, basic);
-
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":UserID"), user_id);
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageOffset"), page_number * QUERY_PAGE_SIZE);
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
-
-    while (sqlite3_step(query) == SQLITE_ROW) {
-        myrespstrcat(&buff, "{\"uri\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
-        myrespstrcat(&buff, "\",\"title\": \"");
-        myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
-        myrespstrcat(&buff, "\",\"date\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
-        myrespstrcat(&buff, "\"},");
-    }
-
-    sqlite3_reset(query);
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
-}
-
-void write_source_articles_prepared_paginate(int sockfd, char* resp, int source_id, int page_number, sqlite3_stmt *query) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-    myrespstrcat(&buff, basic);
-
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":SourceID"), source_id);
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageOffset"), page_number * QUERY_PAGE_SIZE);
-    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
-
-    while (sqlite3_step(query) == SQLITE_ROW) {
-        myrespstrcat(&buff, "{\"uri\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
-        myrespstrcat(&buff, "\",\"title\": \"");
-        myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
-        myrespstrcat(&buff, "\",\"date\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
-        myrespstrcat(&buff, "\"},");
-    }
-
-    sqlite3_reset(query);
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
-}
-
-void write_user_sources_prepared(int sockfd, char* resp, int user_id, sqlite3_stmt *query) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-    myrespstrcat(&buff, basic);
-
-    sqlite3_bind_int(query, 1, user_id);
-
-    while (sqlite3_step(query) == SQLITE_ROW) {
-        myrespstrcat(&buff, "{\"uri\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
-        myrespstrcat(&buff, "\",\"title\": \"");
-        myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
         myrespstrcat(&buff, "\"},");
     }
 
@@ -401,49 +232,6 @@ void sigpipe_handler(int dummy) {
     printf("SIGPIPE caught!");
 }
 
-void clean_user_string(char *in, char *out) {
-    int i = 0;
-    int j = 0;
-    int ch;
-    for (;i < strlen(in); i++) {
-        ch = in[i];
-        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
-            out[j] = ch;
-            j++;
-        }
-    }
-}
-
-void clean_str_number(char *in, char *out) {
-    int i = 0;
-    int j = 0;
-    int ch;
-    for (;i < strlen(in); i++) {
-        ch = in[i];
-        if (ch >= '0' && ch <= '9') {
-            out[j] = ch;
-            j++;
-        }
-    }
-}
-
-int str_to_int(char *str) {
-    int mul = 1;
-    int len_str = strlen(str);
-    int i = len_str - 1;
-    int result = 0;
-
-    for (;i > 0; i--) {
-        mul *= 10;
-    }
-
-    for (;i < len_str; i++) {
-        result += mul * (str[i] - '0');
-        mul /= 10;
-    }
-
-    return result;
-}
 
 void handle_login(int sockfd, char* req, char* resp) {
     char userid[BUFFER_SIZE];
@@ -462,54 +250,6 @@ void handle_login(int sockfd, char* req, char* resp) {
 /*     handle_login(sockfd, request_buffer, response_buffer); */
 /* } */
 
-void route_handler_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-    char val_page_number[BUFFER_SIZE] = {0};
-    char val_clean_page_number[BUFFER_SIZE] = {0};
-    sscanf(uri, route->scan, val_page_number);
-    clean_str_number(val_page_number, val_clean_page_number);
-    write_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_page_number), queries->prep_query_all_articles_paginate);
-}
-
-void route_handler_user_sources(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-    char val_userid[BUFFER_SIZE] = {0};
-    char val_clean_userid[BUFFER_SIZE] = {0};
-    sscanf(uri, route->scan, val_userid);
-    clean_str_number(val_userid, val_clean_userid);
-    write_user_sources_prepared(sockfd, resp, str_to_int(val_clean_userid), queries->prep_query_user_sources);
-}
-
-void route_handler_user_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-    char val_page_number[BUFFER_SIZE] = {0};
-    char val_clean_page_number[BUFFER_SIZE] = {0};
-    char val_userid[BUFFER_SIZE] = {0};
-    char val_clean_userid[BUFFER_SIZE] = {0};
-    sscanf(uri, route->scan, val_userid, val_page_number);
-    clean_str_number(val_userid, val_clean_userid);
-    clean_str_number(val_page_number, val_clean_page_number);
-    write_user_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries->prep_query_user_articles_paginate);
-}
-
-void route_handler_source_articles_paged(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-    char val_page_number[BUFFER_SIZE] = {0};
-    char val_clean_page_number[BUFFER_SIZE] = {0};
-    char val_sourceid[BUFFER_SIZE] = {0};
-    char val_clean_sourceid[BUFFER_SIZE] = {0};
-    sscanf(uri, route->scan, val_sourceid, val_page_number);
-    clean_str_number(val_sourceid, val_clean_sourceid);
-    clean_str_number(val_page_number, val_clean_page_number);
-    write_source_articles_prepared_paginate(sockfd, resp, str_to_int(val_clean_sourceid), str_to_int(val_clean_page_number), queries->prep_query_source_articles_paginate);
-}
-
-void route_handler_greet(int sockfd, char *uri, char *resp, queries *queries, Route *route) {
-    char greet_name[BUFFER_SIZE] = {0};
-    char clean_greet_name[BUFFER_SIZE] = {0};
-    sscanf(uri,route->scan, greet_name);
-    clean_user_string(greet_name, clean_greet_name);
-    printf("greet: %s (%s)\n", greet_name, clean_greet_name);
-    /* if (db_connected) { */
-    /*     write_greeting(sockfd, resp, clean_greet_name, db); */
-    /* } */
-}
 
 
 
