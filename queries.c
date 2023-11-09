@@ -4,6 +4,7 @@
 #include "queries.h"
 
 #define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == :UserName;"
+/* #define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == 'david';" */
 
 #define QUERY_ALL_ARTICLES "SELECT uri, title, pubdate FROM Articles ORDER BY -pubdate;"
 #define QUERY_ALL_ARTICLES_PAGINATE "SELECT uri, title, pubdate FROM Articles WHERE id NOT IN (SELECT id FROM Articles ORDER BY -pubdate LIMIT ?) ORDER BY -pubdate limit ?;"
@@ -108,6 +109,7 @@ void db_prepare_queries(sqlite3 *db, queries *q) {
 
 
 void db_finalize_queries(queries *q) {
+    sqlite3_finalize(q->prep_query_greet_user);
     sqlite3_finalize(q->prep_query_all_articles);
     sqlite3_finalize(q->prep_query_all_articles_paginate);
     sqlite3_finalize(q->prep_query_search_all_articles_paginate);

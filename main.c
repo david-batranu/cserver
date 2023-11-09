@@ -101,53 +101,6 @@ static int db_callback_greeting(void *buffer, int num_columns, char **columns, c
 }
 
 
-void write_greeting(int sockfd, char* resp, char* name, sqlite3 *db) {
-
-    char query[BUFFER_SIZE] = {0};
-    char greeting[BUFFER_SIZE] = {0};
-    char body[RESPONSE_SIZE] = {0};
-
-    sprintf(query, "select greeting from user_greeting where name == '%s';", name);
-
-    if (query_db(db, query, db_callback_greeting, greeting) != 0 || strlen(greeting) == 0) {
-        sprintf(greeting, "Who?");
-    }
-
-    sprintf(body, "<html><head><title>%s</title></head><body><h1>%s</h1></body></html>\n", greeting, greeting);
-    resp_ok(resp, "text/html", "", body);
-    write(sockfd, resp, strlen(resp));
-}
-
-void write_articles_prepared(int sockfd, char* resp, sqlite3_stmt *query) {
-    mybuff buff;
-    char basic[] = JSON_RESP_HEADER;
-
-    buff.buffer = resp;
-    buff.p = resp;
-    buff.buffer_size = RESP_BUFFER_SIZE;
-    buff.callback = &on_resp_buffer_full;
-    buff.sockfd = sockfd;
-
-    myrespstrcat(&buff, basic);
-
-    while (sqlite3_step(query) == SQLITE_ROW) {
-        myrespstrcat(&buff, "{\"uri\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
-        myrespstrcat(&buff, "\",\"title\": \"");
-        myrespstrcat(&buff, escape_quotes((char *)sqlite3_column_text(query, 1)));
-        myrespstrcat(&buff, "\",\"date\":\"");
-        myrespstrcat(&buff, (char *)sqlite3_column_text(query, 2));
-        myrespstrcat(&buff, "\"},");
-    }
-
-    sqlite3_reset(query);
-
-    myrespstrcat(&buff, JSON_RESP_FOOTER);
-
-    write(sockfd, buff.buffer, (buff.p - buff.buffer));
-}
-
-
 int create_socket() {
     int socket_reuse = 1;
     int sockfd, set_socket_reuse_addr;
@@ -201,13 +154,6 @@ void handle_login(int sockfd, char* req, char* resp) {
     clean_user_string(userid, clean_userid);
     printf("user: %s password: %s \n", clean_userid, password);
 }
-
-/* void route_handler_login(int sockfd, char *uri, char *resp, queries *queries, Route *route) { */
-/*     handle_login(sockfd, request_buffer, response_buffer); */
-/* } */
-
-
-
 
 
 int main() {

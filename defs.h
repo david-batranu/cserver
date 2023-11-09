@@ -11,6 +11,8 @@
 #define JSON_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: application/json\r\n\r\n{\"results\":["
 #define JSON_RESP_FOOTER "]}"
 
+#define HTML_RESP_HEADER "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-type: text/html\r\n\r\n"
+
 typedef struct mybuff mybuff;
 struct mybuff {
     char *buffer;
