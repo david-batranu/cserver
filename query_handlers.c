@@ -138,8 +138,6 @@ void write_source_articles_prepared_paginate(int sockfd, char* resp, int source_
 
 void write_greeting_prepared(int sockfd, char* resp, char* user_name, sqlite3_stmt *query) {
     mybuff buff;
-    char basic[] = HTML_RESP_HEADER;
-    char body[RESPONSE_SIZE];
     int found = 0;
 
     buff.buffer = resp;
@@ -148,7 +146,7 @@ void write_greeting_prepared(int sockfd, char* resp, char* user_name, sqlite3_st
     buff.callback = &on_resp_buffer_full;
     buff.sockfd = sockfd;
 
-    myrespstrcat(&buff, basic);
+    myrespstrcat(&buff, HTML_RESP_HEADER);
 
     sqlite3_bind_text(
         query, sqlite3_bind_parameter_index(query, ":UserName"),
@@ -156,21 +154,19 @@ void write_greeting_prepared(int sockfd, char* resp, char* user_name, sqlite3_st
 
     while (sqlite3_step(query) == SQLITE_ROW) {
       found = 1;
-      sprintf(
-          body,
-          "<html><head><title>%s</title></head><body><h1>%s</h1></body></html>\n",
-          (char *)sqlite3_column_text(query, 0),
-          (char *)sqlite3_column_text(query, 0)
-          );
+      myrespstrcat(&buff, "<html><head><title>");
+      myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
+      myrespstrcat(&buff, "</title></head><body><h1>");
+      myrespstrcat(&buff, (char *)sqlite3_column_text(query, 0));
+      myrespstrcat(&buff, "</body></html>\n");
     }
 
     if (found == 0) {
-      sprintf(body, "Who?");
+      myrespstrcat(&buff, "<html><body>Who?</body></html>\n");
     }
 
     sqlite3_reset(query);
 
-    myrespstrcat(&buff, body);
     write(sockfd, buff.buffer, (buff.p - buff.buffer));
 }
 

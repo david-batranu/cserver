@@ -91,16 +91,6 @@ void write_favicon(int sockfd, char* resp) {
 }
 
 
-static int db_callback_greeting(void *buffer, int num_columns, char **columns, char **column_names) {
-    /* printf("Got %d columns!\n", num_columns); */
-    if (num_columns == 1) {
-        /* printf("Columns: %s\n", columns[0]); */
-        sprintf((char *)buffer, "%s", columns[0]);
-    }
-    return 0;
-}
-
-
 int create_socket() {
     int socket_reuse = 1;
     int sockfd, set_socket_reuse_addr;
@@ -164,7 +154,6 @@ int main() {
     queries queries;
 
     sqlite3 *db;
-    int db_connected = 0;
     int sockfd;
 
     char request_buffer[BUFFER_SIZE];
@@ -186,7 +175,8 @@ int main() {
     make_route(&routes[3], "GET", "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged);
     make_route(&routes[4], "GET", "/greet/", "/greet/%128s", &route_handler_greet);
     printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
-    db_connected = connect_db("main.db", &db);
+
+    connect_db("main.db", &db);
 
     /* create a socket */
     sockfd = create_socket();

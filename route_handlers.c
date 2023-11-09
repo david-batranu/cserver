@@ -50,9 +50,5 @@ void route_handler_greet(int sockfd, char *uri, char *resp, queries *queries, Ro
     char clean_greet_name[BUFFER_SIZE] = {0};
     sscanf(uri,route->scan, greet_name);
     clean_user_string(greet_name, clean_greet_name);
-    printf("greet: %s (%s)\n", greet_name, clean_greet_name);
     write_greeting_prepared(sockfd, resp, clean_greet_name, queries->prep_query_greet_user);
-    /* if (db_connected) { */
-    /*     write_greeting(sockfd, resp, clean_greet_name, db); */
-    /* } */
 }
