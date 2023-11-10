@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <string.h>
+
+#include "request.h"
 #include "routes.h"
 
 
-int handle_routes(int sockfd, char *method, char *uri, char *resp, queries *queries, Route *routes) {
+int handle_routes(Request_t *req, queries *queries, Route *routes) {
     int handled = 0;
     int i = 0;
     while(i < NR_ROUTES) {
-        if (strcmp(method, routes[i].method) == 0 && strncmp(uri, routes[i].path, routes[i].size) == 0) {
-            routes[i].handler(sockfd, uri, resp, queries, &routes[i]);
+        if (req->method == routes[i].method && strncmp(req->uri, routes[i].path, routes[i].size) == 0) {
+            routes[i].handler(req, queries, &routes[i]);
             handled = 1;
             break;
         }
@@ -17,7 +19,7 @@ int handle_routes(int sockfd, char *method, char *uri, char *resp, queries *quer
     return handled;
 }
 
-void make_route(Route *route, char *method, char *path, char *scan, void (*handler)(int sockfd, char *uri, char *resp, queries *q, Route *route)) {
+void make_route(Route *route, int method, char *path, char *scan, void (*handler)(Request_t *, queries *, Route *)) {
     route->method = method;
     route->path = path;
     route->scan = scan;

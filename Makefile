@@ -5,6 +5,6 @@ OBJECTS=main.o
 
 all: build
 build: $(OBJECTS)
-	$(CC) $(CFLAGS) utils.c query_handlers.c route_handlers.c routes.c queries.c main.c $(CLIBS) -o main.o
+	$(CC) $(CFLAGS) utils.c request.c query_handlers.c route_handlers.c routes.c queries.c main.c $(CLIBS) -o main.o
 
 

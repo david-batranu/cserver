@@ -49,13 +49,6 @@ int str_to_int(char *str) {
     return result;
 }
 
-void on_resp_buffer_full(void *buff) {
-    /* printf("Flush resp buffer!\n"); */
-    mybuff *b = (mybuff *)buff;
-    write(b->sockfd, b->buffer, b->buffer_size);
-    b->buffer[0] = '\0';
-    b->p = b->buffer;
-}
 
 void myrespstrcat(mybuff *buff, char* src) {
     int remaining = buff->buffer_size - (buff->p - buff->buffer);
