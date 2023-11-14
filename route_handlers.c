@@ -7,6 +7,21 @@
 #include "routes.h"
 #include "query_handlers.h"
 
+void route_handler_login(Request_t *req, queries *queries, Route *route) {
+    char userid[BUFFER_SIZE] = {'\0'};
+    char password[BUFFER_SIZE] = {'\0'};
+    char clean_userid[BUFFER_SIZE] = {'\0'};
+
+    char *body_begins;
+    body_begins = strstr(req->buffer, "\n\r\n");
+
+    printf("userid: %s, password: %s, clean_userid: %s\n", userid, password, clean_userid);
+
+    sscanf(body_begins, "%1000[^:]:%1000s", userid, password);
+    clean_user_string(userid, clean_userid);
+    printf("user: %s password: %s \n", clean_userid, password);
+}
+
 void route_handler_articles_paged(Request_t *req, queries *queries, Route *route) {
     char val_page_number[BUFFER_SIZE] = {0};
     char val_clean_page_number[BUFFER_SIZE] = {0};

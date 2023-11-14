@@ -4,7 +4,7 @@
 #include "request.h"
 #include "queries.h"
 
-#define NR_ROUTES 5
+#define NR_ROUTES 10
 
 typedef struct Route Route;
 struct Route {

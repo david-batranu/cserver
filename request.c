@@ -5,9 +5,10 @@
 #include "request.h"
 
 
-void request_init(Request_t *req, ResponseBuffer_t *resp_buffer, char *response_buffer, int sockfd, char* req_method, char* uri) {
+void request_init(Request_t *req, ResponseBuffer_t *resp_buffer, char *response_buffer, char *request_buffer, int sockfd, char* req_method, char* uri) {
     req->sockfd = sockfd;
     req->uri = uri;
+    req->buffer = request_buffer;
 
     resp_buffer->sockfd = sockfd;
     resp_buffer->buffer = response_buffer;
