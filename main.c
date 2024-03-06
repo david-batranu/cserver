@@ -143,6 +143,8 @@ int main() {
     char request_buffer[BUFFER_SIZE];
     char response_buffer[RESP_BUFFER_SIZE];
 
+    char sql_query_test[BUFFER_SIZE];
+
     /* prepare the address to bind the socket to */
     struct sockaddr_in host_addr;
     int host_addrlen = sizeof(host_addr);
@@ -150,6 +152,10 @@ int main() {
     /* prepare client address */
     struct sockaddr_in client_addr;
     int client_addrlen = sizeof(client_addr);
+
+    db_query_read_from_file("queries/test.sql", sql_query_test);
+
+    printf("READ SQL: %s\n\n=====\n", sql_query_test);
 
     /* make_route(&routes[0], "/login", '\0', &route_handler_login); */
     make_route(&routes[0], RM_POST, "/login", '\0', &route_handler_login);

@@ -1,7 +1,11 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
+#include "defs.h"
 #include "queries.h"
+#include "utils.h"
 
 #define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == :UserName;"
 /* #define QUERY_GREET_USER "SELECT greeting FROM user_greeting WHERE name == 'david';" */
@@ -104,6 +108,33 @@ void db_prepare_queries(sqlite3 *db, queries *q) {
         &q->prep_query_search_source_articles_paginate,
         NULL
     );
+
+}
+
+long db_query_read_from_file(char* fname, char* output) {
+    long size = 0;
+
+    FILE *fp;
+    char read_buffer[BUFFER_SIZE];
+    
+    fp = fopen(fname, "r");
+
+    printf("Reading SQL file: %s!\n", fname);
+
+
+    if (fp != NULL) {
+        size = get_file_size(fp);
+        while(fgets(read_buffer, BUFFER_SIZE, fp)) {
+            mystrcat(output, read_buffer);
+            bzero(read_buffer, BUFFER_SIZE);
+        };
+        fclose(fp);
+    }
+    else {
+        printf("Could not read file!\n");
+    }
+
+    return size;
 
 }
 
