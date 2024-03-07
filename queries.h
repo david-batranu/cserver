@@ -19,5 +19,5 @@ typedef struct {
 
 void db_prepare_queries(sqlite3 *db, queries *q);
 void db_finalize_queries(queries *q);
-long db_query_read_from_file(char* fname, char* output);
+char* db_query_read_from_file(char* fname);
 #endif
