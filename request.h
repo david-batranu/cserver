@@ -3,6 +3,7 @@
 
 #define RM_GET 1
 #define RM_POST 2
+#define RM_OPTIONS 9
 #define RM_UNK 0
 
 typedef struct Request Request_t;

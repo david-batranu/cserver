@@ -19,8 +19,12 @@ void request_init(Request_t *req, ResponseBuffer_t *resp_buffer, char *response_
 
     if (strncmp(req_method, "GET", 3) == 0) {
         req->method = RM_GET;
-    } else if (strncmp(req_method, "POST", 4) == 0) {
+    }
+    else if (strncmp(req_method, "POST", 4) == 0) {
         req->method = RM_POST;
+    }
+    else if (strncmp(req_method, "OPTIONS", 7) == 0) {
+        req->method = RM_OPTIONS;
     }
     else {
         req->method = RM_UNK;
