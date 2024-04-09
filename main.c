@@ -30,7 +30,8 @@ typedef struct ThreadParams ThreadParams_t;
 
 struct ThreadParams {
   int sockfd;
-  queries *queries;
+  sqlite3 *db;
+  query_strings *query_strings;
   Route *routes;
 };
 
@@ -152,10 +153,12 @@ void *connection_handler(void *params) {
   ThreadParams_t *thread_params = (ThreadParams_t*)params;
 
   int newsockfd = thread_params->sockfd;
-  printf("[1]NEWSOCKFD: %i\n", newsockfd);
 
   char request_buffer[BUFFER_SIZE] = {0};
   char response_buffer[RESP_BUFFER_SIZE] = {0};
+
+  queries queries;
+  db_prepare_queries(thread_params->db, &queries, thread_params->query_strings);
 
   sockn = getpeername(newsockfd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addrlen);
   if (sockn < 0) {
@@ -174,7 +177,7 @@ void *connection_handler(void *params) {
 
   request_init(&request, &resp_buffer, response_buffer, request_buffer, newsockfd, method, uri);
 
-  handled_route = handle_routes(&request, &thread_params->queries, thread_params->routes);
+  handled_route = handle_routes(&request, &queries, thread_params->routes);
 
   if (strcmp(uri, "/favicon.ico") == 0) {
     write_favicon(newsockfd, response_buffer);
@@ -188,6 +191,7 @@ void *connection_handler(void *params) {
     /* write_default(newsockfd, response_buffer); */
   }
 
+  db_finalize_queries(&queries);
   bzero(request_buffer, BUFFER_SIZE);
   bzero(response_buffer, BUFFER_SIZE);
   close(newsockfd);
@@ -196,7 +200,7 @@ void *connection_handler(void *params) {
 int main() {
     Route routes[NR_ROUTES];
 
-    queries queries;
+    query_strings query_strings;
 
     sqlite3 *db;
     int sockfd;
@@ -245,7 +249,8 @@ int main() {
 
     printf("server listening for connectins!\n");
 
-    db_prepare_queries(db, &queries);
+    db_read_queries(&query_strings);
+    /* db_prepare_queries(db, &queries); */
 
     /* Handle Ctrl+C */
     signal(SIGINT, signalHandler);
@@ -266,10 +271,10 @@ int main() {
         }
 
         thread_params.sockfd = newsockfd;
-        thread_params.queries = &queries;
+        /* thread_params.queries = &queries; */
         thread_params.routes = &routes;
-
-        printf("[0]NEWSOCKFD: %i\n", newsockfd);
+        thread_params.db = db;
+        thread_params.query_strings = &query_strings;
 
         if (pthread_create(&thread_id, NULL, connection_handler, (void *) &thread_params) != 0)
         {
@@ -283,7 +288,7 @@ int main() {
 
     printf("EXITING...\n");
     close(sockfd);
-    db_finalize_queries(&queries);
+    /* db_finalize_queries(&queries); */
     sqlite3_close_v2(db);
     return 0;
 }

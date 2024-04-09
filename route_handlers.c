@@ -21,6 +21,9 @@ void route_handler_login(Request_t *req, queries *queries, Route *route) {
     sscanf(body_begins, "%1000[^:]:%1000s", userid, password);
     clean_user_string(userid, clean_userid);
     printf("user: %s password: %s \n", clean_userid, password);
+    response_write(req, HTML_RESP_HEADER);
+    response_write(req, "<html><body><h1>Hello!!!</h1></body></html>");
+    response_flush(req);
 }
 
 void route_handler_articles_paged(Request_t *req, queries *queries, Route *route) {
