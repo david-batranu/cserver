@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -ggdb -std=c89 -pedantic -x c
-CLIBS=-lsqlite3
+CLIBS=-lsqlite3 -lpthread
 OBJECTS=main.o
 
 all: build

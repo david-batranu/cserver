@@ -3,6 +3,7 @@
 /* #include <netinet/in.h> */
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -25,6 +26,15 @@
 static volatile sig_atomic_t keepRunning = 1;
 
 
+typedef struct ThreadParams ThreadParams_t;
+
+struct ThreadParams {
+  int sockfd;
+  queries *queries;
+  Route *routes;
+};
+
+
 void resp_ok(char* resp, char* content_type, char* extra_headers, char* body) {
     char basic[] =
         "HTTP/1.1 200 OK\r\n"
@@ -43,9 +53,6 @@ void resp_404(char* resp) {
         "\r\n";
     strcat(resp, basic);
 }
-
-
-
 
 void write_default(int sockfd, char* resp) {
     resp_ok(resp, "text/html", "", "<html>Hello, world!</html>");
@@ -130,9 +137,63 @@ void sigpipe_handler(int dummy) {
 }
 
 
-int main() {
-    int handled_route = 0;
+void *connection_handler(void *params) {
+  int sockn;
+  int handled_route = 0;
 
+  /* prepare client address */
+  struct sockaddr_in client_addr;
+  int client_addrlen = sizeof(client_addr);
+
+  int valread;
+  char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE];
+  Request_t request;
+  ResponseBuffer_t resp_buffer;
+  ThreadParams_t *thread_params = (ThreadParams_t*)params;
+
+  int newsockfd = thread_params->sockfd;
+  printf("[1]NEWSOCKFD: %i\n", newsockfd);
+
+  char request_buffer[BUFFER_SIZE] = {0};
+  char response_buffer[RESP_BUFFER_SIZE] = {0};
+
+  sockn = getpeername(newsockfd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addrlen);
+  if (sockn < 0) {
+    perror("webserver (getpeername)");
+  }
+
+  /* Read from the socket */
+  valread = read(newsockfd, request_buffer, BUFFER_SIZE);
+  if (valread < 0)
+  {
+    perror("webserver (read)");
+  }
+
+  /* Read the request */
+  sscanf(request_buffer, "%s %s %s", method, uri, version);
+
+  request_init(&request, &resp_buffer, response_buffer, request_buffer, newsockfd, method, uri);
+
+  handled_route = handle_routes(&request, &thread_params->queries, thread_params->routes);
+
+  if (strcmp(uri, "/favicon.ico") == 0) {
+    write_favicon(newsockfd, response_buffer);
+    /* write_404(newsockfd, response_buffer); */
+    handled_route = 1;
+  }
+
+  if (!handled_route) {
+    printf("Could not handle route: %s\n", uri);
+    write_404(newsockfd, response_buffer);
+    /* write_default(newsockfd, response_buffer); */
+  }
+
+  bzero(request_buffer, BUFFER_SIZE);
+  bzero(response_buffer, BUFFER_SIZE);
+  close(newsockfd);
+}
+
+int main() {
     Route routes[NR_ROUTES];
 
     queries queries;
@@ -140,16 +201,9 @@ int main() {
     sqlite3 *db;
     int sockfd;
 
-    char request_buffer[BUFFER_SIZE] = {0};
-    char response_buffer[RESP_BUFFER_SIZE] = {0};
-
     /* prepare the address to bind the socket to */
     struct sockaddr_in host_addr;
     int host_addrlen = sizeof(host_addr);
-
-    /* prepare client address */
-    struct sockaddr_in client_addr;
-    int client_addrlen = sizeof(client_addr);
 
     /* make_route(&routes[0], "/login", '\0', &route_handler_login); */
     make_route(&routes[0], RM_POST, "/login", '\0', &route_handler_login);
@@ -198,10 +252,10 @@ int main() {
     signal(SIGPIPE, sigpipe_handler);
 
     while(keepRunning) {
-        int newsockfd, sockn, valread;
-        char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE];
-        Request_t request;
-        ResponseBuffer_t resp_buffer;
+        int newsockfd;
+        pthread_t thread_id;
+        ThreadParams_t thread_params;
+
 
         /* Accept incoming connections */
         newsockfd = accept(sockfd, (struct sockaddr *)&host_addr, (socklen_t *)&host_addrlen);
@@ -210,59 +264,21 @@ int main() {
             perror("webserver (accept)");
             continue;
         }
-        /* n_requests++; */
-        /* printf("[%i] connection accepted\n", n_requests); */
 
-        /* Get client address */
-        sockn = getpeername(newsockfd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addrlen);
-        if (sockn < 0) {
-            perror("webserver (getpeername)");
-            continue;
-        }
+        thread_params.sockfd = newsockfd;
+        thread_params.queries = &queries;
+        thread_params.routes = &routes;
 
-        /* Read from the socket */
-        valread = read(newsockfd, request_buffer, BUFFER_SIZE);
-        if (valread < 0)
+        printf("[0]NEWSOCKFD: %i\n", newsockfd);
+
+        if (pthread_create(&thread_id, NULL, connection_handler, (void *) &thread_params) != 0)
         {
-            perror("webserver (read)");
+            perror("pthread_create");
             continue;
         }
 
-        /* Read the request */
-        /* method[0] = uri[0] = version[0] = '\0'; */
-        sscanf(request_buffer, "%s %s %s", method, uri, version);
+        printf("Thread assigned... \n");
 
-
-        /*
-        printf(
-                "[%s:%u] %s %s %s\n",
-                inet_ntoa(client_addr.sin_addr),
-                ntohs(client_addr.sin_port),
-                method,
-                version,
-                uri
-              );
-        */
-
-        request_init(&request, &resp_buffer, response_buffer, request_buffer, newsockfd, method, uri);
-
-        handled_route = handle_routes(&request, &queries, routes);
-
-        if (strcmp(uri, "/favicon.ico") == 0) {
-            write_favicon(newsockfd, response_buffer);
-            /* write_404(newsockfd, response_buffer); */
-            handled_route = 1;
-        }
-
-        if (!handled_route) {
-            printf("Could not handle route: %s\n", uri);
-            write_404(newsockfd, response_buffer);
-            /* write_default(newsockfd, response_buffer); */
-        }
-
-        bzero(request_buffer, BUFFER_SIZE);
-        bzero(response_buffer, BUFFER_SIZE);
-        close(newsockfd);
     }
 
     printf("EXITING...\n");

@@ -6,7 +6,7 @@
 int connect_db(char *filename, sqlite3 **db) {
     int rc;
 
-    rc = sqlite3_open(filename, db);
+    rc = sqlite3_open_v2(filename, db, SQLITE_OPEN_FULLMUTEX, "");
     if (rc) {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(*db));
         sqlite3_close(*db);
