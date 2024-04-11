@@ -30,6 +30,7 @@ typedef struct {
 } queries;
 
 void db_read_queries(query_strings *qs);
+void db_free_queries(query_strings *qs);
 void db_prepare_queries(sqlite3 *db, queries *q, query_strings *qs);
 void db_finalize_queries(queries *q);
 char* db_query_read_from_file(char* fname);

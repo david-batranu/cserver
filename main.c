@@ -139,6 +139,7 @@ void sigpipe_handler(int dummy) {
 
 
 void *connection_handler(void *params) {
+
   int sockn;
   int handled_route = 0;
 
@@ -158,6 +159,9 @@ void *connection_handler(void *params) {
   char response_buffer[RESP_BUFFER_SIZE] = {0};
 
   queries queries;
+
+  pthread_detach(pthread_self());
+
   db_prepare_queries(thread_params->db, &queries, thread_params->query_strings);
 
   sockn = getpeername(newsockfd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addrlen);
@@ -195,6 +199,7 @@ void *connection_handler(void *params) {
   bzero(request_buffer, BUFFER_SIZE);
   bzero(response_buffer, BUFFER_SIZE);
   close(newsockfd);
+  return 0;
 }
 
 int main() {
@@ -216,6 +221,7 @@ int main() {
     make_route(&routes[3], RM_GET,  "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged);
     make_route(&routes[4], RM_GET,  "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged);
     make_route(&routes[5], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet);
+    make_route(&routes[6], RM_GET,  "/hello", '\0', &route_handler_hello);
     printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
 
     connect_db("main.db", &db);
@@ -258,9 +264,11 @@ int main() {
 
     while(keepRunning) {
         int newsockfd;
-        pthread_t thread_id;
-        ThreadParams_t thread_params;
 
+        pthread_t thread_id;
+        /* pthread_attr_t thread_attrs; */
+
+        ThreadParams_t thread_params;
 
         /* Accept incoming connections */
         newsockfd = accept(sockfd, (struct sockaddr *)&host_addr, (socklen_t *)&host_addrlen);
@@ -272,15 +280,21 @@ int main() {
 
         thread_params.sockfd = newsockfd;
         /* thread_params.queries = &queries; */
-        thread_params.routes = &routes;
+        thread_params.routes = routes;
         thread_params.db = db;
         thread_params.query_strings = &query_strings;
+
+        /* pthread_attr_setdetachstate(&thread_attrs, PTHREAD_CREATE_DETACHED); */
 
         if (pthread_create(&thread_id, NULL, connection_handler, (void *) &thread_params) != 0)
         {
             perror("pthread_create");
             continue;
         }
+
+        /* pthread_attr_destroy(&thread_attrs); */
+
+        /* pthread_detach(thread_id); */
 
         printf("Thread assigned... \n");
 
@@ -289,6 +303,7 @@ int main() {
     printf("EXITING...\n");
     close(sockfd);
     /* db_finalize_queries(&queries); */
+    /* db_free_queries(&query_strings); */
     sqlite3_close_v2(db);
     return 0;
 }

@@ -8,6 +8,12 @@
 #include "query_handlers.h"
 
 
+void route_handler_hello(Request_t *req, queries *queries, Route *route) {
+    response_write(req, HTML_RESP_HEADER);
+    response_write(req, "<html><body><h1>Hello!!!</h1></body></html>");
+    response_flush(req);
+}
+
 void route_handler_login(Request_t *req, queries *queries, Route *route) {
     char userid[BUFFER_SIZE] = {'\0'};
     char password[BUFFER_SIZE] = {'\0'};

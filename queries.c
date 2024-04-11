@@ -21,6 +21,20 @@ void db_read_queries(query_strings *qs) {
 }
 
 
+void db_free_queries(query_strings *qs) {
+    free(qs->query_greet_user);
+    free(qs->query_all_articles);
+    free(qs->query_all_articles_paginate);
+    free(qs->query_user_sources);
+    free(qs->query_search_all_articles_paginate);
+    free(qs->query_source_articles_paginate);
+    free(qs->query_search_source_articles_paginate);
+
+    free(qs->query_user_articles_paginate);
+    free(qs->query_search_user_articles_paginate);
+}
+
+
 void db_prepare_queries(sqlite3 *db, queries *q, query_strings *qs) {
     char *query_greet_user = qs->query_greet_user;
     char *query_all_articles = qs->query_all_articles;
