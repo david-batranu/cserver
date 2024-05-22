@@ -148,24 +148,38 @@ void *connection_handler(void *params) {
   int client_addrlen = sizeof(client_addr);
 
   int valread;
-  char method[BUFFER_SIZE], uri[BUFFER_SIZE], version[BUFFER_SIZE];
   Request_t request;
   ResponseBuffer_t resp_buffer;
   ThreadParams_t *thread_params = (ThreadParams_t*)params;
 
   int newsockfd = thread_params->sockfd;
 
-  char request_buffer[BUFFER_SIZE] = {0};
-  char response_buffer[RESP_BUFFER_SIZE] = {0};
+  char *request_buffer, *response_buffer, *method, *uri, *version;
 
   queries queries;
 
   pthread_detach(pthread_self());
 
+  method = malloc(BUFFER_SIZE * sizeof(char));
+  memset(method, 0, BUFFER_SIZE);
+
+  uri = malloc(BUFFER_SIZE * sizeof(char));
+  memset(uri, 0, BUFFER_SIZE);
+
+  version = malloc(BUFFER_SIZE * sizeof(char));
+  memset(version, 0, BUFFER_SIZE);
+
+  request_buffer = malloc(BUFFER_SIZE * sizeof(char));
+  memset(request_buffer, 0, BUFFER_SIZE);
+
+  response_buffer = malloc(RESP_BUFFER_SIZE * sizeof(char));
+  memset(response_buffer, 0, RESP_BUFFER_SIZE);
+
   db_prepare_queries(thread_params->db, &queries, thread_params->query_strings);
 
   sockn = getpeername(newsockfd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addrlen);
   if (sockn < 0) {
+    printf("--- %i ---\n", newsockfd);
     perror("webserver (getpeername)");
   }
 
@@ -190,15 +204,18 @@ void *connection_handler(void *params) {
   }
 
   if (!handled_route) {
-    printf("Could not handle route: %s\n", uri);
     write_404(newsockfd, response_buffer);
     /* write_default(newsockfd, response_buffer); */
   }
 
   db_finalize_queries(&queries);
-  bzero(request_buffer, BUFFER_SIZE);
-  bzero(response_buffer, BUFFER_SIZE);
   close(newsockfd);
+  free(method);
+  free(uri);
+  free(version);
+  free(request_buffer);
+  free(response_buffer);
+  free(thread_params);
   return 0;
 }
 
@@ -266,9 +283,8 @@ int main() {
         int newsockfd;
 
         pthread_t thread_id;
-        /* pthread_attr_t thread_attrs; */
 
-        ThreadParams_t thread_params;
+        ThreadParams_t *thread_params = malloc(sizeof(ThreadParams_t));
 
         /* Accept incoming connections */
         newsockfd = accept(sockfd, (struct sockaddr *)&host_addr, (socklen_t *)&host_addrlen);
@@ -278,15 +294,15 @@ int main() {
             continue;
         }
 
-        thread_params.sockfd = newsockfd;
         /* thread_params.queries = &queries; */
-        thread_params.routes = routes;
-        thread_params.db = db;
-        thread_params.query_strings = &query_strings;
+        thread_params->sockfd = newsockfd;
+        thread_params->routes = routes;
+        thread_params->db = db;
+        thread_params->query_strings = &query_strings;
 
         /* pthread_attr_setdetachstate(&thread_attrs, PTHREAD_CREATE_DETACHED); */
 
-        if (pthread_create(&thread_id, NULL, connection_handler, (void *) &thread_params) != 0)
+        if (pthread_create(&thread_id, NULL, connection_handler, (void *) thread_params) != 0)
         {
             perror("pthread_create");
             continue;
@@ -296,7 +312,7 @@ int main() {
 
         /* pthread_detach(thread_id); */
 
-        printf("Thread assigned... \n");
+        /* printf("Thread assigned... \n"); */
 
     }
 
@@ -305,5 +321,6 @@ int main() {
     /* db_finalize_queries(&queries); */
     /* db_free_queries(&query_strings); */
     sqlite3_close_v2(db);
+    pthread_exit(NULL);
     return 0;
 }

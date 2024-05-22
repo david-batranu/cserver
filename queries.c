@@ -92,8 +92,10 @@ char* db_query_read_from_file(char *fname) {
     long size = 0;
 
     FILE *fp;
-    char buffer[BUFFER_SIZE];
-    char *output = 0;
+    char *buffer, *output;
+
+    buffer = malloc(BUFFER_SIZE * sizeof(char));
+    memset(buffer, 0, BUFFER_SIZE);
 
     fp = fopen(fname, "r");
 
@@ -101,8 +103,8 @@ char* db_query_read_from_file(char *fname) {
 
     if (fp != NULL) {
         size = get_file_size(fp);
-        output = (char*)malloc(size + 1);
-        output[0] = 0;
+        output = malloc((size + 1) * sizeof(char));
+        memset(output, 0, size + 1);
         while (fgets(buffer, BUFFER_SIZE, fp)) {
             mystrcat(output, buffer);
         };
@@ -111,6 +113,8 @@ char* db_query_read_from_file(char *fname) {
     } else {
         printf("FAIL!\n");
     }
+
+    free(buffer);
 
     return output;
 }

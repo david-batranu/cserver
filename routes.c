@@ -15,7 +15,6 @@ int handle_routes(Request_t *req, queries *queries, Route *routes) {
     int i = 0;
     while(i < NR_ROUTES) {
         if (req->method != RM_UNK && routes[i].handler != 0 && req->method == routes[i].method && strncmp(req->uri, routes[i].path, routes[i].size) == 0) {
-            printf("FOUND ROUTE %s...\n", routes[i].path);
             routes[i].handler(req, queries, &routes[i]);
             handled = 1;
             break;
