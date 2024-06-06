@@ -10,19 +10,26 @@
 
 
 void write_articles_prepared_paginate(Request_t *req, int page_number, sqlite3_stmt *query) {
+    int is_first = 1;
     response_write(req, JSON_RESP_HEADER);
 
     sqlite3_bind_int(query, 1, page_number * QUERY_PAGE_SIZE);
     sqlite3_bind_int(query, 2, QUERY_PAGE_SIZE);
 
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (is_first) {
+          is_first = 0;
+        }
+        else {
+          response_write(req, ",");
+        }
         response_write(req, "{\"uri\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 0));
         response_write(req, "\",\"title\": \"");
         response_write(req, escape_quotes((char *)sqlite3_column_text(query, 1)));
         response_write(req, "\",\"date\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 2));
-        response_write(req, "\"},");
+        response_write(req, "\"}");
     }
 
     sqlite3_reset(query);
@@ -32,16 +39,25 @@ void write_articles_prepared_paginate(Request_t *req, int page_number, sqlite3_s
 }
 
 void write_user_sources_prepared(Request_t *req, int user_id, sqlite3_stmt *query) {
+    int is_first = 1;
     response_write(req, JSON_RESP_HEADER);
 
     sqlite3_bind_int(query, 1, user_id);
 
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (is_first) {
+          is_first = 0;
+        }
+        else {
+          response_write(req, ",");
+        }
         response_write(req, "{\"uri\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 0));
         response_write(req, "\",\"title\": \"");
         response_write(req, escape_quotes((char *)sqlite3_column_text(query, 1)));
-        response_write(req, "\"},");
+        response_write(req, "\",\"id\": \"");
+        response_write(req, (char *)sqlite3_column_text(query, 2));
+        response_write(req, "\"}");
     }
 
     sqlite3_reset(query);
@@ -51,6 +67,7 @@ void write_user_sources_prepared(Request_t *req, int user_id, sqlite3_stmt *quer
 }
 
 void write_user_articles_prepared_paginate(Request_t *req, int user_id, int page_number, sqlite3_stmt *query) {
+    int is_first = 1;
     response_write(req, JSON_RESP_HEADER);
 
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":UserID"), user_id);
@@ -58,13 +75,19 @@ void write_user_articles_prepared_paginate(Request_t *req, int user_id, int page
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
 
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (is_first) {
+          is_first = 0;
+        }
+        else {
+          response_write(req, ",");
+        }
         response_write(req, "{\"uri\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 0));
         response_write(req, "\",\"title\": \"");
         response_write(req, escape_quotes((char *)sqlite3_column_text(query, 1)));
         response_write(req, "\",\"date\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 2));
-        response_write(req, "\"},");
+        response_write(req, "\"}");
     }
 
     sqlite3_reset(query);
@@ -74,6 +97,7 @@ void write_user_articles_prepared_paginate(Request_t *req, int user_id, int page
 }
 
 void write_source_articles_prepared_paginate(Request_t *req, int source_id, int page_number, sqlite3_stmt *query) {
+    int is_first = 1;
     response_write(req, JSON_RESP_HEADER);
 
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":SourceID"), source_id);
@@ -81,13 +105,19 @@ void write_source_articles_prepared_paginate(Request_t *req, int source_id, int 
     sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
 
     while (sqlite3_step(query) == SQLITE_ROW) {
+        if (is_first) {
+          is_first = 0;
+        }
+        else {
+          response_write(req, ",");
+        }
         response_write(req, "{\"uri\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 0));
         response_write(req, "\",\"title\": \"");
         response_write(req, escape_quotes((char *)sqlite3_column_text(query, 1)));
         response_write(req, "\",\"date\":\"");
         response_write(req, (char *)sqlite3_column_text(query, 2));
-        response_write(req, "\"},");
+        response_write(req, "\"}");
     }
 
     sqlite3_reset(query);

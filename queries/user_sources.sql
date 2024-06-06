@@ -1,5 +1,6 @@
 SELECT uri,
-       title
+       title,
+       id
 FROM Sources
 where id IN
     (SELECT sourceid

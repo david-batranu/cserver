@@ -3,7 +3,7 @@
 
 #include <sqlite3.h>
 
-#define QUERY_PAGE_SIZE 10
+#define QUERY_PAGE_SIZE 50
 
 typedef struct {
     char *query_greet_user;
