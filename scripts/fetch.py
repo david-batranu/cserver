@@ -1,9 +1,18 @@
+import logging
 import sqlite3
 import feedparser
 import dateparser
 import datetime
 import time
 import pytz
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+log = logging.getLogger("fetch-articles")
 
 DB = "file:../main.db?mode=rw"
 
@@ -21,6 +30,7 @@ def datetime_now():
 for _id, uri, db_title in sources:
     d = feedparser.parse(uri)
     title = d.feed.get("title", uri)
+    log.info("Fetching %s...", uri)
     if title != db_title:
         cur.execute(
             "UPDATE Sources set title = ? WHERE id == ?",
@@ -33,11 +43,12 @@ for _id, uri, db_title in sources:
 
     for item in d.entries:
         uri = item.id
-        exists = cur.execute("SELECT id FROM Sources WHERE uri == ?", (uri,)).fetchone()
+        exists = cur.execute("SELECT id FROM Articles WHERE uri == ?", (uri,)).fetchone()
 
         if exists:
             continue
 
+        log.info("Adding new article: %s...", uri)
         title = item.title
         description = item.description
         published = time.mktime(
