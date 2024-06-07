@@ -41,6 +41,7 @@ for _id, uri, db_title in sources:
         )
         con.commit()
 
+    items_to_add = []
     for item in d.entries:
         uri = item.id
         exists = cur.execute("SELECT id FROM Articles WHERE uri == ?", (uri,)).fetchone()
@@ -56,20 +57,21 @@ for _id, uri, db_title in sources:
             or dateparser.parse(item["published"].split(",")[-1]).timetuple(),
         )
         created = time.mktime(datetime_now().timetuple())
+        items_to_add.append((
+            uri,
+            title,
+            description,
+            int(published),
+            int(created),
+            _id,
+        ))
 
-        cur.execute(
-            (
-                "INSERT INTO Articles(id, uri, title, description, pubdate, date, sourceid)"
-                " values(NULL, ?, ?, ?, ?, ?, ?);"
-            ),
-            (
-                uri,
-                title,
-                description,
-                int(published),
-                int(created),
-                _id,
-            ),
-        )
+    cur.executemany(
+        (
+            "INSERT INTO Articles(id, uri, title, description, pubdate, date, sourceid)"
+            " values(NULL, ?, ?, ?, ?, ?, ?);"
+        ),
+        items_to_add
+    )
 
     con.commit()
