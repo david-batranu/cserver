@@ -10,12 +10,12 @@ WHERE title LIKE '%:SearchString%'
          (SELECT sourceid
           FROM UserSources
           WHERE userid = :UserID)
-     ORDER BY -pubdate
+     ORDER BY pubdate DESC
      LIMIT :PageOffset)
   AND sourceid IN
     (SELECT sourceid
      FROM UserSources
      WHERE userid = :UserID)
-ORDER BY -pubdate
+ORDER BY pubdate DESC
 LIMIT :PageSize;
 

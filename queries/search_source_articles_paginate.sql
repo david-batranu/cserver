@@ -8,8 +8,8 @@ WHERE sourceid = :SourceID
     (SELECT id
      FROM Articles
      WHERE sourceid = :SourceID
-     ORDER BY -pubdate
+     ORDER BY pubdate DESC
      LIMIT :PageOffset)
-ORDER BY -pubdate
+ORDER BY pubdate DESC
 limit :PageSize;
 

@@ -21,7 +21,7 @@
 #include "route_handlers.h"
 #include "query_handlers.h"
 
-#define PORT 8080
+#define PORT 8183
 
 static volatile sig_atomic_t keepRunning = 1;
 

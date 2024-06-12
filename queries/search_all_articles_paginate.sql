@@ -6,8 +6,8 @@ WHERE title LIKE '%:SearchString%'
   AND id NOT IN
     (SELECT id
      FROM Articles
-     ORDER BY -pubdate
+     ORDER BY pubdate DESC
      LIMIT :PageOffset)
-ORDER BY -pubdate
+ORDER BY pubdate DESC
 limit :PageSize;
 

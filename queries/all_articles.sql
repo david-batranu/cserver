@@ -2,4 +2,4 @@ SELECT uri,
     title,
     pubdate
 FROM Articles
-ORDER BY - pubdate;
+ORDER BY pubdate DESC;

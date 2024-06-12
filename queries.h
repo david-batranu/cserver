@@ -1,8 +1,8 @@
 #ifndef QUERIES_H
 #define QUERIES_H
 
-/* #include <sqlite3.h> */
-#include "sqlite/sqlite3.h"
+#include <sqlite3.h>
+/* #include "sqlite/sqlite3.h" */
 
 #define QUERY_PAGE_SIZE 50
 

@@ -3,6 +3,6 @@ SELECT uri,
        pubdate
 FROM Articles
 WHERE sourceid = :SourceID
-ORDER BY -pubdate
-limit :PageOffset:, :PageSize;
+ORDER BY pubdate DESC
+limit :PageOffset, :PageSize;
 
