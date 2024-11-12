@@ -44,8 +44,8 @@ void db_prepare_queries(sqlite3 *db, queries *q, query_strings *qs) {
     char *query_source_articles_paginate = qs->query_source_articles_paginate;
     char *query_search_source_articles_paginate = qs->query_search_source_articles_paginate;
 
-    char *query_user_articles_paginate = qs->query_greet_user;
-    char *query_search_user_articles_paginate = qs->query_greet_user;
+    char *query_user_articles_paginate = qs->query_user_articles_paginate;
+    char *query_search_user_articles_paginate = qs->query_search_user_articles_paginate;
 
     sqlite3_prepare_v3(db, query_greet_user, strlen(query_greet_user),
             SQLITE_PREPARE_PERSISTENT, &q->prep_query_greet_user,

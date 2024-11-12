@@ -1,5 +1,5 @@
 SELECT uri,
-       title,
+       json_quote(title),
        pubdate
 FROM Articles
 WHERE sourceid = :SourceID

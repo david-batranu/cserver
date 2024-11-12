@@ -18,6 +18,19 @@ void clean_user_string(char *in, char *out) {
     }
 }
 
+void clean_string(char *in, char *out) {
+    int i = 0;
+    int j = 0;
+    int ch;
+    for (;i < strlen(in); i++) {
+        ch = in[i];
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || (ch == ' ')) {
+            out[j] = ch;
+            j++;
+        }
+    }
+}
+
 void clean_str_number(char *in, char *out) {
     int i = 0;
     int j = 0;

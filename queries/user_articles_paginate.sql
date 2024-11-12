@@ -2,19 +2,10 @@ SELECT uri,
        title,
        pubdate
 FROM Articles
-WHERE id NOT IN
-    (SELECT id
-     FROM Articles
-     WHERE sourceid IN
-         (SELECT sourceid
-          FROM UserSources
-          WHERE userid = :UserID)
-     ORDER BY pubdate DESC
-     LIMIT :PageOffset)
-  AND sourceid IN
+WHERE sourceid IN
     (SELECT sourceid
      FROM UserSources
      WHERE userid = :UserID)
 ORDER BY pubdate DESC
-LIMIT :PageSize;
+LIMIT :PageOffset, :PageSize;
 

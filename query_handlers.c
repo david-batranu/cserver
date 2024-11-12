@@ -97,6 +97,38 @@ void write_user_articles_prepared_paginate(Request_t *req, int user_id, int page
     response_flush(req);
 }
 
+void write_search_user_articles_prepared_paginate(Request_t *req, char *search_string, int user_id, int page_number, sqlite3_stmt *query) {
+    int is_first = 1;
+
+    response_write(req, JSON_RESP_HEADER);
+
+    sqlite3_bind_text(query, sqlite3_bind_parameter_index(query, ":SearchString"), search_string, strlen(search_string), 0);
+    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":UserID"), user_id);
+    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageOffset"), page_number * QUERY_PAGE_SIZE);
+    sqlite3_bind_int(query, sqlite3_bind_parameter_index(query, ":PageSize"), QUERY_PAGE_SIZE);
+
+    while (sqlite3_step(query) == SQLITE_ROW) {
+        if (is_first) {
+          is_first = 0;
+        }
+        else {
+          response_write(req, ",");
+        }
+        response_write(req, "{\"uri\":\"");
+        response_write(req, (char *)sqlite3_column_text(query, 0));
+        response_write(req, "\",\"title\": \"");
+        response_write(req, escape_quotes((char *)sqlite3_column_text(query, 1)));
+        response_write(req, "\",\"date\":\"");
+        response_write(req, (char *)sqlite3_column_text(query, 2));
+        response_write(req, "\"}");
+    }
+
+    sqlite3_reset(query);
+
+    response_write(req, JSON_RESP_FOOTER);
+    response_flush(req);
+}
+
 void write_source_articles_prepared_paginate(Request_t *req, int source_id, int page_number, sqlite3_stmt *query) {
     int is_first = 1;
     response_write(req, JSON_RESP_HEADER);

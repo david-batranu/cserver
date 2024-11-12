@@ -195,6 +195,8 @@ void *connection_handler(void *params) {
 
   request_init(&request, &resp_buffer, response_buffer, request_buffer, newsockfd, method, uri);
 
+  printf("Request: [%i] %s...\n", request.method, request.uri);
+
   handled_route = handle_routes(&request, &queries, thread_params->routes);
 
   if (strcmp(uri, "/favicon.ico") == 0) {
@@ -237,8 +239,9 @@ int main() {
     make_route(&routes[2], RM_GET,  "/user-sources/", "/user-sources/%1000s", &route_handler_user_sources);
     make_route(&routes[3], RM_GET,  "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged);
     make_route(&routes[4], RM_GET,  "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged);
-    make_route(&routes[5], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet);
-    make_route(&routes[6], RM_GET,  "/hello", '\0', &route_handler_hello);
+    make_route(&routes[5], RM_GET,  "/search-user-articles-paged/", "/search-user-articles-paged/%1000[^/]/%1000[^/]/%1000[^'/']s", &route_handler_search_user_articles_paged);
+    make_route(&routes[6], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet);
+    make_route(&routes[7], RM_GET,  "/hello", '\0', &route_handler_hello);
     printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
 
     connect_db("main.db", &db);

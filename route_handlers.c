@@ -59,6 +59,20 @@ void route_handler_user_articles_paged(Request_t *req, queries *queries, Route *
     write_user_articles_prepared_paginate(req, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries->prep_query_user_articles_paginate);
 }
 
+void route_handler_search_user_articles_paged(Request_t *req, queries *queries, Route *route) {
+    char val_page_number[BUFFER_SIZE] = {0};
+    char val_clean_page_number[BUFFER_SIZE] = {0};
+    char val_userid[BUFFER_SIZE] = {0};
+    char val_clean_userid[BUFFER_SIZE] = {0};
+    char val_search_string[BUFFER_SIZE] = {0};
+    char val_clean_search_string[BUFFER_SIZE] = {0};
+    sscanf(req->uri, route->scan, val_userid, val_search_string, val_page_number);
+    clean_str_number(val_userid, val_clean_userid);
+    clean_str_number(val_page_number, val_clean_page_number);
+    clean_string(val_search_string, val_clean_search_string);
+    write_search_user_articles_prepared_paginate(req, val_clean_search_string, str_to_int(val_clean_userid), str_to_int(val_clean_page_number), queries->prep_query_search_user_articles_paginate);
+}
+
 void route_handler_source_articles_paged(Request_t *req, queries *queries, Route *route) {
     char val_page_number[BUFFER_SIZE] = {0};
     char val_clean_page_number[BUFFER_SIZE] = {0};

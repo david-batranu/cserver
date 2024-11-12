@@ -1,21 +1,12 @@
 SELECT uri,
-       title,
+       json_quote(title),
        pubdate
 FROM Articles
-WHERE title LIKE '%:SearchString%'
-  AND id NOT IN
-    (SELECT id
-     FROM Articles
-     WHERE sourceid IN
-         (SELECT sourceid
-          FROM UserSources
-          WHERE userid = :UserID)
-     ORDER BY pubdate DESC
-     LIMIT :PageOffset)
+WHERE title LIKE '%' || :SearchString || '%'
   AND sourceid IN
     (SELECT sourceid
      FROM UserSources
      WHERE userid = :UserID)
 ORDER BY pubdate DESC
-LIMIT :PageSize;
+LIMIT :PageOffset, :PageSize;
 

@@ -3,11 +3,6 @@ SELECT uri,
        pubdate
 FROM Articles
 WHERE title LIKE '%:SearchString%'
-  AND id NOT IN
-    (SELECT id
-     FROM Articles
-     ORDER BY pubdate DESC
-     LIMIT :PageOffset)
 ORDER BY pubdate DESC
-limit :PageSize;
+limit :PageOffset, :PageSize;
 
