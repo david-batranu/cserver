@@ -1,6 +1,8 @@
 window.cServer = (function(){
-  const URL_USER_SOURCES = "http://cserver:8080/user-sources/1";
-  const URL_SOURCE_ARTICLES = "http://cserver:8080/source-articles-paged/[SOURCE_ID]/[PAGE_NR]";
+  const URL_BASE = window.location.origin;
+  const URL_USER_SOURCES = URL_BASE + "/api/user-sources/1";
+  const URL_SOURCE_ARTICLES = URL_BASE + "/api/source-articles-paged/[SOURCE_ID]/[PAGE_NR]";
+  const URL_SEARCH_ARTICLES = URL_BASE + "/api/search-user-articles-paged/1/[SEARCH_TEXT]/[PAGE_NR]";
 
   function formatDateValue(value) {
     const intl = new Intl.DateTimeFormat("ro-RO", { month: "short" });
@@ -20,12 +22,66 @@ window.cServer = (function(){
 
   window.addEventListener("popstate", handlePopState);
 
+  function getPageInfo(path) {
+    const splitPath = path.split("/")
+    let sourceId, page, search;
+    if (splitPath.length === 4) {
+      if (splitPath[1] === "search") {
+        search = splitPath[2];
+      } else {
+        sourceId = splitPath[2];
+      }
+      page = parseInt(splitPath[3], 10);
+    } else {
+      if (splitPath[1] === "search") {
+        search = splitPath.pop();
+      } else {
+        sourceId = splitPath.pop();
+      }
+      page = 0;
+    }
+    return [sourceId, search, page]
+  }
+
+  async function navToLocationPath() {
+    const [sourceId, search, page] = getPageInfo(location.pathname)
+    let state;
+    if (search) {
+      state = {
+        articles: await fetchSearchArticles(search, page),
+        page: page,
+        search: search,
+      }
+    } else {
+      state = {
+        articles: await fetchArticles(sourceId, page),
+        page: page,
+        sourceId: sourceId,
+      }
+    }
+    history.replaceState(state, "", location.pathname);
+    displayContent(state);
+  }
+
   async function navToSource(evt) {
     evt.preventDefault();
-    const sourceId = evt.target.pathname.split("/").pop()
-    const state = {
-      title: evt.target.textContent,
-      articles: await fetchArticles(sourceId, 0),
+    const [sourceId, search, page] = getPageInfo(evt.target.pathname)
+    let state;
+    if (search) {
+      state = {
+        title: evt.target.textContent,
+        articles: await fetchSearchArticles(search, page),
+        page: page,
+        search: search
+      }
+    }
+    else {
+      state = {
+        title: evt.target.textContent,
+        articles: await fetchArticles(sourceId, page),
+        page: page,
+        sourceId: sourceId,
+      }
     }
     history.pushState(state, "", evt.target.pathname);
     displayContent(state);
@@ -51,41 +107,108 @@ window.cServer = (function(){
   }
 
   async function fetchArticles(source_id, page_nr) {
-    const url = URL_SOURCE_ARTICLES.replace("[SOURCE_ID]", source_id).replace("[PAGE_NR]", page_nr)
+    const url = URL_SOURCE_ARTICLES.replace("[SOURCE_ID]", source_id).replace("[PAGE_NR]", page_nr);
     const resp = await fetch(url);
     const data = await resp.json();
 
     const articles = data.results;
-    console.log(articles);
     return articles;
+  }
+
+  async function fetchSearchArticles(text, page_nr) {
+    const url = URL_SEARCH_ARTICLES.replace("[SEARCH_TEXT]", text).replace("[PAGE_NR]", page_nr);
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    const articles = data.results;
+    return articles;
+  }
+
+  async function handleFormSearch(evt) {
+    evt.preventDefault()
+    const text = evt.target.querySelector('input[type="text"]').value;
+    const state = {
+      title: evt.target.textContent,
+      articles: await fetchSearchArticles(text, 0),
+      page: 0,
+      search: text,
+    }
+    history.pushState(state, "", "/search/" + text + "/0");
+    displayContent(state);
   }
 
   function displayContent(state) {
     const TPL_ARTICLE = document.getElementById("tplArticle");
     const TARGET_ARTICLES = document.querySelector("#feed-items");
 
-    document.title = state.title;
+    const T_PREV = document.getElementById("prevPage");
+    const T_NEXT = document.getElementById("nextPage");
+
+    if (state.title) {
+      document.title = state.title;
+    }
 
     const articles = state.articles;
 
-    console.log(TARGET_ARTICLES);
-    TARGET_ARTICLES.innerHTML = "";
+    if (state.page >= 1) {
+      if (state.search) {
+        T_PREV.href = `/search/${state.search}/${state.page - 1}`
+      } else {
+        T_PREV.href = `/source/${state.sourceId}/${state.page - 1}`
+      }
+      T_PREV.style.visibility = 'visible'
+    } else {
+      T_PREV.style.visibility = 'hidden'
+    }
 
-    for (let i = 0; i < articles.length; i++) {
-      const elItem = TPL_ARTICLE.content.cloneNode(true);
-      const elTitle = elItem.querySelector(".feed-item-title");
-      const elDate = elItem.querySelector(".feed-item-date");
+    if (articles.length) {
+      if (state.search) {
+        T_NEXT.href = `/search/${state.search}/${state.page + 1}`
+      } else {
+        T_NEXT.href = `/source/${state.sourceId}/${state.page + 1}`
+      }
+      T_NEXT.style.visibility = 'visible'
+    } else {
+      T_NEXT.style.visibility = 'hidden'
+    }
 
-      elTitle.textContent = articles[i].title;
-      elTitle.href = articles[i].uri;
+    if (articles.length) {
 
-      elDate.textContent = formatDateValue(articles[i].date);
+      TARGET_ARTICLES.innerHTML = "";
 
-      TARGET_ARTICLES.appendChild(elItem);
+      for (let i = 0; i < articles.length; i++) {
+        const elItem = TPL_ARTICLE.content.cloneNode(true);
+        const elTitle = elItem.querySelector(".feed-item-title");
+        const elDate = elItem.querySelector(".feed-item-date");
+        const elSource = elItem.querySelector(".feed-item-source");
+
+        elTitle.textContent = articles[i].title;
+        elTitle.href = articles[i].uri;
+
+        elDate.textContent = formatDateValue(articles[i].date);
+        elSource.textContent = new URL(articles[i].uri).hostname;
+
+        TARGET_ARTICLES.appendChild(elItem);
+      }
+
     }
   }
 
+  function init() {
+    const T_PREV = document.getElementById("prevPage");
+    const T_NEXT = document.getElementById("nextPage");
+    const FORM_SEARCH = document.getElementById("search");
+
+    FORM_SEARCH.addEventListener("submit", handleFormSearch);
+
+    T_PREV.addEventListener("click", navToSource);
+    T_NEXT.addEventListener("click", navToSource);
+
+    navToLocationPath()
+  }
+
   return {
+    init,
     fetchSources,
   }
 

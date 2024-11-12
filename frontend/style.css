@@ -1,5 +1,18 @@
 body {
   font-family: system-ui;
+  background-color: Canvas;
+  color: CanvasText;
+  color-scheme: light dark;
+}
+
+@media (orientation: portrait) {
+  #main {
+    flex-direction: column;
+  }
+
+  #pagination {
+    margin-top: 1rem;
+  }
 }
 
 #main {
@@ -9,6 +22,17 @@ body {
 
 main {
   flex-grow: 1;
+}
+
+#pagination {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem;
+  border: 1px solid #cacaca;
+  margin-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  background: Canvas;
 }
 
 nav {
@@ -28,6 +52,7 @@ nav {
 
 #feed-items {
   margin: 0;
+  padding: 0;
 }
 
 .feed-item {
@@ -35,7 +60,7 @@ nav {
   flex-direction: column;
 
   border: 1px solid #cacaca;
-  margin: 0.5rem;
+  margin-bottom: 0.5rem;
 
   &:first-child {
     margin-top: 0;
@@ -43,13 +68,20 @@ nav {
 
   a {
     padding: 1rem 0.5rem;
-    background-color: #f5f5f5;
+    background-color: Canvas;
     text-decoration: none;
   }
 
   span {
-    text-align: right;
     padding: 0.5rem;
-    background-color: #d3d3d3;
   }
+
+  .feed-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: Field;
+    color: GrayText;
+  }
+
 }

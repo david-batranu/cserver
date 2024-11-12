@@ -2,23 +2,31 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>cserver</title>
-    <script src="./script.js"></script>
-    <link rel="stylesheet" href="./style.css" />
+    <title>News</title>
+    <script src="/script.js"></script>
+    <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <h1><a href="/">cServer</a></h1>
+    <h1><a href="/">News</a></h1>
     <div id="main">
-    <aside>
-      <nav>
-        <ul>
+      <aside>
+        <nav>
+          <ul>
+          </ul>
+        </nav>
+      </aside>
+      <main>
+        <div id="pagination">
+          <a id="prevPage">&lt; Previous page</a>
+          <form id="search" method="GET" action="/search/">
+            <input type="text" name="text" />
+            <button type="submit">Search</button>
+          </form>
+          <a id="nextPage">Next page &gt;</a>
+        </div>
+        <ul id="feed-items">
         </ul>
-      </nav>
-    </aside>
-    <main>
-      <ul id="feed-items">
-      </ul>
-    </main>
+      </main>
     </div>
     <template id="tplSource">
       <li><a></a></li>
@@ -26,9 +34,12 @@
     <template id="tplArticle">
       <li class="feed-item">
         <a class="feed-item-title" target="_blank" rel="noopener noreferrer nofollow"></a>
-        <span class="feed-item-date"></span>
+        <div class="feed-item-footer">
+          <span class="feed-item-source"></span>
+          <span class="feed-item-date"></span>
+        </div>
       </li>
     </template>
-    <script type="text/javascript">cServer.fetchSources()</script>
+    <script type="text/javascript">cServer.init(); cServer.fetchSources();</script>
   </body>
 </html>
