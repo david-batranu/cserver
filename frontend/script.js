@@ -46,7 +46,7 @@ window.cServer = (function(){
   async function navToLocationPath() {
     const [sourceId, search, page] = getPageInfo(location.pathname)
     let state;
-    if (search) {
+    if (search != undefined) {
       state = {
         articles: await fetchSearchArticles(search, page),
         page: page,
@@ -67,7 +67,7 @@ window.cServer = (function(){
     evt.preventDefault();
     const [sourceId, search, page] = getPageInfo(evt.target.pathname)
     let state;
-    if (search) {
+    if (search != undefined) {
       state = {
         title: evt.target.textContent,
         articles: await fetchSearchArticles(search, page),
@@ -151,7 +151,7 @@ window.cServer = (function(){
     const articles = state.articles;
 
     if (state.page >= 1) {
-      if (state.search) {
+      if (state.search != undefined) {
         T_PREV.href = `/search/${state.search}/${state.page - 1}`
       } else {
         T_PREV.href = `/source/${state.sourceId}/${state.page - 1}`
@@ -162,7 +162,7 @@ window.cServer = (function(){
     }
 
     if (articles.length) {
-      if (state.search) {
+      if (state.search != undefined) {
         T_NEXT.href = `/search/${state.search}/${state.page + 1}`
       } else {
         T_NEXT.href = `/source/${state.sourceId}/${state.page + 1}`
