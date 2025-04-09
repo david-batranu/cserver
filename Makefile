@@ -1,5 +1,7 @@
-CC=gcc
-CFLAGS=-Wall -ggdb -std=c89 -pedantic -x c
+CC=clang
+CFLAGS=-W -Wall -pedantic -pedantic-errors -std=c89 -xc
+#CC=gcc
+#CFLAGS=-Wall -ggdb -std=c89 -pedantic -x c
 CLIBS=-lsqlite3 -lpthread
 OBJECTS=main.o
 

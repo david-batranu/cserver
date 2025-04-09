@@ -21,7 +21,15 @@
 #include "route_handlers.h"
 #include "query_handlers.h"
 
-#define PORT 8183
+#define DEFAULT_PORT 8183
+
+const Route routes[] = {
+  { 6,  RM_GET, "/hello",                       "\0",                                                           &route_handler_hello },
+  { 14, RM_GET, "/user-sources/",               "/user-sources/%1000s",                                         &route_handler_user_sources },
+  { 23, RM_GET, "/source-articles-paged/",      "/source-articles-paged/%1000[^/]/%1000[^'/']s",                &route_handler_source_articles_paged },
+  { 28, RM_GET, "/search-user-articles-paged/", "/search-user-articles-paged/%1000[^/]/%1000[^/]/%1000[^'/']s", &route_handler_search_user_articles_paged },
+};
+
 
 static volatile sig_atomic_t keepRunning = 1;
 
@@ -32,7 +40,7 @@ struct ThreadParams {
   int sockfd;
   sqlite3 *db;
   query_strings *query_strings;
-  Route *routes;
+  /* Route *routes; */
 };
 
 
@@ -97,7 +105,7 @@ void write_favicon(int sockfd, char* resp) {
 }
 
 
-int create_socket() {
+int create_socket(void) {
     int socket_reuse = 1;
     int sockfd, set_socket_reuse_addr;
 
@@ -126,6 +134,7 @@ int create_socket() {
 }
 
 void signalHandler(int dummy) {
+    printf("Got signal: %d\n", dummy);
     if (keepRunning == 1){
         keepRunning = 0;
     } else {
@@ -134,7 +143,7 @@ void signalHandler(int dummy) {
 }
 
 void sigpipe_handler(int dummy) {
-    printf("SIGPIPE caught!");
+    printf("SIGPIPE caught! [%d]\n", dummy);
 }
 
 
@@ -197,7 +206,7 @@ void *connection_handler(void *params) {
 
   printf("Request: [%i] %s...\n", request.method, request.uri);
 
-  handled_route = handle_routes(&request, &queries, thread_params->routes);
+  handled_route = handle_routes(&request, &queries, (Route *)routes);
 
   if (strcmp(uri, "/favicon.ico") == 0) {
     write_favicon(newsockfd, response_buffer);
@@ -221,28 +230,37 @@ void *connection_handler(void *params) {
   return 0;
 }
 
-int main() {
-    Route routes[NR_ROUTES];
+
+int main(int argc, char *argv[]) {
+    /* Route routes[NR_ROUTES]; */
 
     query_strings query_strings;
 
     sqlite3 *db;
     int sockfd;
+    int inet_port = DEFAULT_PORT;
 
     /* prepare the address to bind the socket to */
     struct sockaddr_in host_addr;
     int host_addrlen = sizeof(host_addr);
 
-    /* make_route(&routes[0], "/login", '\0', &route_handler_login); */
-    make_route(&routes[0], RM_POST, "/login", '\0', &route_handler_login);
-    /* make_route(&routes[1], RM_GET,  "/articles-paged/", "/articles-paged/%1000s", &route_handler_articles_paged); */
-    make_route(&routes[2], RM_GET,  "/user-sources/", "/user-sources/%1000s", &route_handler_user_sources);
-    /* make_route(&routes[3], RM_GET,  "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged); */
-    make_route(&routes[4], RM_GET,  "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged);
-    make_route(&routes[5], RM_GET,  "/search-user-articles-paged/", "/search-user-articles-paged/%1000[^/]/%1000[^/]/%1000[^'/']s", &route_handler_search_user_articles_paged);
-    /* make_route(&routes[6], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet); */
-    /* make_route(&routes[7], RM_GET,  "/hello", '\0', &route_handler_hello); */
-    printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size);
+    /* #<{(| make_route(&routes[0], "/login", '\0', &route_handler_login); |)}># */
+    /* make_route(&routes[0], RM_POST, "/login", '\0', &route_handler_login); */
+    /* #<{(| make_route(&routes[1], RM_GET,  "/articles-paged/", "/articles-paged/%1000s", &route_handler_articles_paged); |)}># */
+    /* make_route(&routes[2], RM_GET,  "/user-sources/", "/user-sources/%1000s", &route_handler_user_sources); */
+    /* #<{(| make_route(&routes[3], RM_GET,  "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged); |)}># */
+    /* make_route(&routes[4], RM_GET,  "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged); */
+    /* make_route(&routes[5], RM_GET,  "/search-user-articles-paged/", "/search-user-articles-paged/%1000[^/]/%1000[^/]/%1000[^'/']s", &route_handler_search_user_articles_paged); */
+    /* #<{(| make_route(&routes[6], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet); |)}># */
+    /* #<{(| make_route(&routes[7], RM_GET,  "/hello", '\0', &route_handler_hello); |)}># */
+    /* #<{(| printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size); |)}># */
+
+    if (argc >= 2 && strlen(argv[1]) > 0) {
+        inet_port = str_to_int(argv[1]);
+    }
+
+    printf("Running on port: %i...\n", inet_port);
+    printf("RRR: %ld\n", sizeof(routes)/sizeof(Route));
 
     connect_db("main.db", &db);
 
@@ -254,7 +272,7 @@ int main() {
 
     /* create the address to bind the socket to */
     host_addr.sin_family = AF_INET;
-    host_addr.sin_port = htons(PORT);
+    host_addr.sin_port = htons(inet_port);
     host_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     /* bind the socket to the address */
@@ -299,7 +317,7 @@ int main() {
 
         /* thread_params.queries = &queries; */
         thread_params->sockfd = newsockfd;
-        thread_params->routes = routes;
+        /* thread_params->routes = routes; */
         thread_params->db = db;
         thread_params->query_strings = &query_strings;
 

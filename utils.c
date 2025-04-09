@@ -6,8 +6,8 @@
 #include "utils.h"
 
 void clean_user_string(char *in, char *out) {
-    int i = 0;
-    int j = 0;
+    unsigned long i = 0;
+    unsigned long j = 0;
     int ch;
     for (;i < strlen(in); i++) {
         ch = in[i];
@@ -19,8 +19,8 @@ void clean_user_string(char *in, char *out) {
 }
 
 void clean_string(char *in, char *out) {
-    int i = 0;
-    int j = 0;
+    unsigned long i = 0;
+    unsigned long j = 0;
     int ch;
     for (;i < strlen(in); i++) {
         ch = in[i];
@@ -32,8 +32,8 @@ void clean_string(char *in, char *out) {
 }
 
 void clean_str_number(char *in, char *out) {
-    int i = 0;
-    int j = 0;
+    unsigned long i = 0;
+    unsigned long j = 0;
     int ch;
     for (;i < strlen(in); i++) {
         ch = in[i];
