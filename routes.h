@@ -7,21 +7,21 @@
 #define NR_ROUTES 10
 
 typedef struct Route Route;
+typedef struct RouteHandlerParams RouteHandlerParams_t;
+
+struct RouteHandlerParams {
+    Request_t *req;
+    queries *queries;
+    Route *route;
+};
+
 struct Route {
     short unsigned int size;
     int method;
     const char *path;
     const char *scan;
-    void (*handler)(Request_t *, queries *, Route *);
+    void (*handler)(RouteHandlerParams_t *);
 };
-
-void make_route(
-    Route *route,
-    int method,
-    char *path,
-    char *scan,
-    void (*handler)(Request_t *, queries *, Route *)
-);
 
 int handle_routes(Request_t *, queries *, Route *);
 #endif

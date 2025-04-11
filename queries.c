@@ -92,7 +92,7 @@ char* db_query_read_from_file(char *fname) {
     long size = 0;
 
     FILE *fp;
-    char *buffer, *output;
+    char *buffer, *output = "\0";
 
     buffer = malloc(BUFFER_SIZE * sizeof(char));
     memset(buffer, 0, BUFFER_SIZE);

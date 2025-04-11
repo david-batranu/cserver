@@ -19,7 +19,6 @@
 #include "request.h"
 #include "utils.h"
 #include "route_handlers.h"
-#include "query_handlers.h"
 
 #define DEFAULT_PORT 8183
 
@@ -160,11 +159,11 @@ void *connection_handler(void *params) {
   Request_t request;
   ResponseBuffer_t resp_buffer;
   ThreadParams_t *thread_params = (ThreadParams_t*)params;
-
+  
   int newsockfd = thread_params->sockfd;
-
+  
   char *request_buffer, *response_buffer, *method, *uri, *version;
-
+  
   queries queries;
 
   pthread_detach(pthread_self());
@@ -243,17 +242,6 @@ int main(int argc, char *argv[]) {
     /* prepare the address to bind the socket to */
     struct sockaddr_in host_addr;
     int host_addrlen = sizeof(host_addr);
-
-    /* #<{(| make_route(&routes[0], "/login", '\0', &route_handler_login); |)}># */
-    /* make_route(&routes[0], RM_POST, "/login", '\0', &route_handler_login); */
-    /* #<{(| make_route(&routes[1], RM_GET,  "/articles-paged/", "/articles-paged/%1000s", &route_handler_articles_paged); |)}># */
-    /* make_route(&routes[2], RM_GET,  "/user-sources/", "/user-sources/%1000s", &route_handler_user_sources); */
-    /* #<{(| make_route(&routes[3], RM_GET,  "/user-articles-paged/", "/user-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_user_articles_paged); |)}># */
-    /* make_route(&routes[4], RM_GET,  "/source-articles-paged/", "/source-articles-paged/%1000[^/]/%1000[^'/']s", &route_handler_source_articles_paged); */
-    /* make_route(&routes[5], RM_GET,  "/search-user-articles-paged/", "/search-user-articles-paged/%1000[^/]/%1000[^/]/%1000[^'/']s", &route_handler_search_user_articles_paged); */
-    /* #<{(| make_route(&routes[6], RM_GET,  "/greet/", "/greet/%128s", &route_handler_greet); |)}># */
-    /* #<{(| make_route(&routes[7], RM_GET,  "/hello", '\0', &route_handler_hello); |)}># */
-    /* #<{(| printf("ROUTE: %s | %s | %i\n", routes[0].path, routes[0].scan, routes[0].size); |)}># */
 
     if (argc >= 2 && strlen(argv[1]) > 0) {
         inet_port = str_to_int(argv[1]);
